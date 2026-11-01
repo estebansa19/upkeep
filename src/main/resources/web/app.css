@@ -59,6 +59,7 @@ input, select {
   font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px;
 }
 input:focus, select:focus, button:focus-visible, canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+code { overflow-wrap: anywhere; }
 kbd { font: 12px ui-monospace, Consolas, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--panel-2); }
 
 /* ------------------------------------------------------------------ top bar */
@@ -109,7 +110,8 @@ kbd { font: 12px ui-monospace, Consolas, monospace; border: 1px solid var(--line
 .tabs button { display: flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border-color: transparent; color: var(--muted); }
 .tabs button.active { background: var(--panel-2); color: var(--text); border-color: var(--line); }
 .tabs button.active span { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-.tab { overflow: auto; padding: 12px; display: grid; gap: 12px; align-content: start; }
+/* minmax(0, 1fr): an auto column would grow to the longest unbreakable word (output paths) and scroll sideways */
+.tab { overflow: auto; padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; }
 .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .card-head h3 { margin: 0; }
