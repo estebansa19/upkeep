@@ -87,6 +87,8 @@ The short version, measured on real worlds (details and numbers in [docs/how-it-
   5 chunks into the regenerated land, and terrain is smoothed for about 100 blocks. Tick **Sharp borders** to avoid that.
 - Half-generated chunks at the edge of explored land keep their old biomes unless you regenerate them too. Chunk Keeper
   removes them unless you keep them.
+- New chunks can place ore, stone blobs and trees up to about 8 blocks into neighbouring kept chunks. Natural blocks are
+  the only ones affected, but keep the default 1-chunk safety margin around builds.
 
 ## Build from source
 

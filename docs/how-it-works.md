@@ -58,6 +58,22 @@ The Nether and End are never blended.
 **Sharp borders** (an Apply option) removes the tag from kept chunks. New chunks then generate exactly as in a fresh world
 right up to your builds. The cost is straight edges along chunk lines, and cliffs if the new version changed terrain shape.
 
+## Regenerated neighbours can touch the edge of kept chunks
+
+When Minecraft generates a chunk, some of its features reach into neighbouring chunks: ore and stone-variety blobs
+(granite, diorite, andesite, coal ore, gravel and dirt pockets) and trees. That also happens when the neighbour is a chunk you
+kept. In an end-to-end test (26.3 world, 541 kept chunks next to 3,555 regenerated ones), about 9,400 blocks changed inside
+kept chunks:
+
+- only natural stone, ore and soil blocks, never player-type blocks
+- nearly all within 1–5 blocks of the border, and none deeper than 8 blocks
+
+A build made of stone-type blocks right at the edge of the kept area could get patched, which is why suggestions add a
+**1-chunk safety margin** by default.
+
+In the same test, every removed chunk was regenerated with biomes identical to the original (same version and seed), and the
+regenerated terrain matched the original apart from the order-dependent spots above (0.3 % of blocks).
+
 ## Other things at the seams
 
 - **Water and lava** at the edge of a kept chunk can flow into lower regenerated terrain. The dry run lists these edges.
