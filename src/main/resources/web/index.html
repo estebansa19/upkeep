@@ -130,10 +130,11 @@
         <label class="field"><span>Name shown in Minecraft</span><input id="outName" autocomplete="off"></label>
         <label class="check">
           <input type="checkbox" id="stripBlending">
-          <span><b>Sharp borders</b> – remove the "old chunk" mark from kept chunks.<br>
-            <small class="muted">When Minecraft considers kept chunks old, it blends new terrain into them: the old biome continues about
-              5 chunks into the regenerated land and the terrain there is smoothed. With sharp borders, the new world generation reaches
-              right up to your builds, but you may see straight edges along chunk lines. Leave it off if unsure.</small></span>
+          <span><b>Remove old-chunk marks</b> from kept chunks.<br>
+            <small class="muted">Minecraft blends new terrain into chunks it has marked as old: the old biome continues about 5 chunks into the
+              regenerated land and the terrain there is smoothed. This removes the marks your kept chunks already carry (for example from an
+              earlier upgrade). It cannot stop a newer Minecraft version from marking them again when it loads them, which happens when that
+              version changed world generation. Leave it off if unsure.</small></span>
         </label>
         <div id="applyGate" class="gate hidden">
           <label class="check"><input type="checkbox" id="ackWarnings"><span>I checked the warnings in Review and want to continue.</span></label>
@@ -206,8 +207,10 @@
     </ul>
     <h3>Borders between kept and regenerated land</h3>
     <p>If the Minecraft version you open the copy with considers your kept chunks "old", it blends the new terrain into them: the old
-      biome continues roughly 5 chunks into the regenerated area and the terrain there is smoothed. Tick <b>Sharp borders</b> when
-      applying to switch that off. Water at the edge of kept chunks can flow into the new terrain, and the review lists those spots.</p>
+      biome continues roughly 5 chunks into the regenerated area and the terrain there is smoothed. A version that changed world
+      generation marks every older chunk this way when it loads it, so expect that ring after such an upgrade. <b>Remove old-chunk
+      marks</b> only clears marks the chunks already carry. Water at the edge of kept chunks can flow into the new terrain, and the
+      review lists those spots.</p>
     <h3>Safety</h3>
     <p>Chunk Keeper only reads your world. Selections and the map cache are stored in your ChunkKeeper folder, not in the world.
       Close Minecraft before applying, and keep a backup of worlds you care about.</p>

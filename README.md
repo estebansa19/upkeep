@@ -19,7 +19,7 @@ Your original world is never modified.
   - player-placed blocks outside natural structures (mineshafts, villages and the like are recognized and skipped)
   - containers with items, beacons, and signs with text
   - tamed, named or leashed mobs, villagers you traded with, item frames and armor stands
-  - nether portals and filled End portal frames
+  - nether portals and activated End portals
   - player positions, respawn points and world spawn
   - the main End island and the End gateways you used
   - the structure starts your farms depend on
@@ -29,7 +29,7 @@ Your original world is never modified.
   portals whose partner would be lost, structures cut in two, and water at the edge of kept land.
 - **Apply to a copy.** Kept chunks are copied byte for byte into fresh, compact region files, and their entities and POI
   data come along. Then the copy is re-read and verified.
-- Optional **sharp borders**: removes Minecraft's "old chunk" blending mark from kept chunks (see
+- Optional removal of Minecraft's "old chunk" blending marks that kept chunks already carry (see
   [how it works](docs/how-it-works.md)).
 - Selections are saved per world and dimension in the **MCA Selector** selection format, so you can move them between
   both tools.
@@ -84,7 +84,8 @@ The short version, measured on real worlds (details and numbers in [docs/how-it-
   biome table changes.
 - Kept chunks never change.
 - If the new version marks your kept chunks as "old", it blends new terrain into them. The old biome then continues about
-  5 chunks into the regenerated land, and terrain is smoothed for about 100 blocks. Tick **Sharp borders** to avoid that.
+  5 chunks into the regenerated land, and terrain is smoothed for about 100 blocks. A version that changed world generation
+  marks every older chunk when it loads it (26.1.2 → 26.3 did), so expect this ring after such an upgrade.
 - Half-generated chunks at the edge of explored land keep their old biomes unless you regenerate them too. Chunk Keeper
   removes them unless you keep them.
 - New chunks can place ore, stone blobs and trees up to about 8 blocks into neighbouring kept chunks. Natural blocks are
@@ -130,6 +131,9 @@ src/test/java/            dependency-free tests
 
 ## Limitations
 
+- It can't prevent blending next to kept chunks when the new Minecraft version marks them as old on load. Doing that would
+  mean upgrading the kept chunks with the new version first and then clearing the marks, which needs a Minecraft server
+  (planned).
 - It doesn't pregenerate the regenerated area. Minecraft generates it when you visit; a pregenerator mod or a server
   can do it ahead of time.
 - Map colors for modded blocks fall back to a generic color.

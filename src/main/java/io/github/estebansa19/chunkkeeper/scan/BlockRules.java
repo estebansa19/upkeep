@@ -52,10 +52,8 @@ public final class BlockRules {
 
     public static boolean isNetherPortal(String id) { return id.equals("minecraft:nether_portal"); }
 
-    /** End portal frame with an eye in it: someone filled it (strongholds generate a few by chance, rarely all). */
-    public static boolean isFilledFrame(String id, Map<String, Object> props) {
-        return id.equals("minecraft:end_portal_frame") && props != null && "true".equals(String.valueOf(props.get("eye")));
-    }
+    /** An activated End portal: strongholds generate single eyes by chance, but never all twelve. */
+    public static boolean isEndPortal(String id) { return id.equals("minecraft:end_portal"); }
 
     public static boolean isAirLike(String id) {
         switch (id) {
@@ -83,10 +81,12 @@ public final class BlockRules {
         "blast_furnace", "smoker", "brewing_stand", "crafter", "decorated_pot", "chiseled_bookshelf", "lectern", "jukebox", "shelf");
     private static final Set<String> ALWAYS_PLAYER_BE = Set.of("beacon", "conduit", "ender_chest", "comparator", "daylight_detector",
         "command_block", "structure_block", "enchanting_table", "shulker_box");
-    private static final Set<String> PLAYER_UNLESS_STRUCTURE_BE = Set.of("banner", "bed", "skull", "campfire", "bell", "beehive");
+    // natural bee nests use the "beehive" block entity too, so it is not listed here
+    private static final Set<String> PLAYER_UNLESS_STRUCTURE_BE = Set.of("banner", "bed", "skull", "campfire", "bell");
 
     /**
      * Whether a block entity looks player made. {@code inStructure}: its position lies inside a structure piece.
+     * Containers inside structures never count: some generate pre-filled without a loot table (trial chamber dispensers).
      */
     public static boolean isPlayerBlockEntity(Map<String, Object> be, boolean inStructure) {
         String id = Nbt.string(be, "id");
@@ -94,10 +94,7 @@ public final class BlockRules {
         String n = id.replace("minecraft:", "");
         if (ALWAYS_PLAYER_BE.contains(n)) return true;
         if (n.equals("sign") || n.equals("hanging_sign")) return signHasText(be);
-        if (CONTAINERS.contains(n)) {
-            if (be.containsKey("LootTable")) return false; // never opened: natural loot
-            return !inStructure || hasItems(be);
-        }
+        if (CONTAINERS.contains(n)) return !inStructure && !be.containsKey("LootTable");
         if (PLAYER_UNLESS_STRUCTURE_BE.contains(n)) return !inStructure;
         return false;
     }

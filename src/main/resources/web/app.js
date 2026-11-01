@@ -10,7 +10,7 @@
     { bit: R.BUILD, label: 'Builds', desc: 'player-placed blocks outside natural structures' },
     { bit: R.STORAGE, label: 'Storage & workstations', desc: 'containers with items, beacons, signs with text…' },
     { bit: R.MOBS, label: 'Pets, villagers & named mobs', desc: 'tamed, named, leashed, traded with; item frames, armor stands' },
-    { bit: R.PORTAL, label: 'Portals', desc: 'nether portals, filled end portal frames' },
+    { bit: R.PORTAL, label: 'Portals', desc: 'nether portals, activated End portals' },
     { bit: R.PLAYER, label: 'Players & spawn', desc: 'player positions, respawn points, world spawn' },
     { bit: R.END, label: 'End island & gateways', desc: 'main End island and the gateways you used' },
     { bit: R.STRUCTURE, label: 'Structures your farms use', desc: 'fortress, monument, witch hut or outpost you built in' },
@@ -1000,8 +1000,13 @@
       h += '<tr><td>' + esc(d.label) + '</td><td>' + fmt(d.keep) + '</td><td>' + fmt(d.regenerate) + '</td><td>' + fmt(d.regenerateProto) + '</td></tr>';
     }
     h += '</table>';
-    const marked = r.dims.filter((d) => d.enabled && d.keptWithBlendingTag > 0);
-    for (const d of marked) h += '<p class="small muted">' + esc(d.label) + ': ' + fmt(d.keptWithBlendingTag) + ' kept chunks already carry the "old chunk" mark, so new terrain will be blended next to them unless you choose sharp borders.</p>';
+    for (const d of r.dims.filter((x) => x.enabled && x.keep > 0)) {
+      h += '<p class="small muted">' + esc(d.label) + ': kept chunks were saved with data version ' + d.keptMinDataVersion
+        + (d.keptMaxDataVersion !== d.keptMinDataVersion ? '–' + d.keptMaxDataVersion : '') + '. A newer Minecraft version that changed world'
+        + ' generation marks them as old when it loads them, so the old biome continues about 5 chunks into the regenerated land.'
+        + (d.keptWithBlendingTag > 0 ? ' ' + fmt(d.keptWithBlendingTag) + ' of them already carry that mark ("Remove old-chunk marks" on the Apply tab clears it).' : '')
+        + '</p>';
+    }
     $('#drySummary').innerHTML = h;
     $('#dryCounts').textContent = r.dangerCount + ' at risk · ' + r.warnCount + ' warnings · ' + r.infoCount + ' notes';
     const el = $('#dryWarnings');

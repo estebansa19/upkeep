@@ -5,7 +5,7 @@ import java.util.*;
 
 /** Per-chunk facts for one region (32x32 chunks), cached on disk next to the rendered tile. */
 public final class RegionData {
-    static final int FORMAT = 4; // bump whenever scan results change, so caches are rebuilt
+    static final int FORMAT = 5; // bump whenever scan results change, so caches are rebuilt
 
     public static final byte NONE = 0, PROTO = 1, FULL = 2, BROKEN = 3;
 

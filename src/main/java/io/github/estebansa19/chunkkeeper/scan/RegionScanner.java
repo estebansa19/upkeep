@@ -111,7 +111,7 @@ final class RegionScanner {
             byte[] kind = null; // 1 player block, 2 portal-ish
             for (int p = 0; p < n; p++) {
                 String id = s.paletteId(p);
-                byte k = BlockRules.isNetherPortal(id) || BlockRules.isFilledFrame(id, s.paletteProps(p)) ? (byte) 2 : BlockRules.isPlayerBlock(id) ? (byte) 1 : 0;
+                byte k = BlockRules.isNetherPortal(id) || BlockRules.isEndPortal(id) ? (byte) 2 : BlockRules.isPlayerBlock(id) ? (byte) 1 : 0;
                 if (k != 0) { if (kind == null) kind = new byte[n]; kind[p] = k; }
             }
             if (kind == null) continue;

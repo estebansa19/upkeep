@@ -55,8 +55,16 @@ cliff. Some odd biome streaks can appear.
 
 The Nether and End are never blended.
 
-**Sharp borders** (an Apply option) removes the tag from kept chunks. New chunks then generate exactly as in a fresh world
-right up to your builds. The cost is straight edges along chunk lines, and cliffs if the new version changed terrain shape.
+The tag is added **when the new version loads the chunk**. That means removing it beforehand (the **Remove old-chunk
+marks** Apply option) only helps against marks from earlier upgrades. For example, it helps when you regenerate with the
+same version the kept chunks were last saved with. Tested with a 26.1.2 world opened in 26.3: all 49 kept chunks were
+tagged on load whether or not the marks had been removed, and the dappled forest started about 9 chunks from the kept area.
+
+Getting new terrain right up to the kept chunks therefore needs two steps:
+1. Let the new version load and save the kept chunks once (a server can do this).
+2. Remove every other chunk again and clear the marks.
+
+Without blending you get straight edges along chunk lines, and cliffs if the new version changed terrain shape.
 
 ## Regenerated neighbours can touch the edge of kept chunks
 

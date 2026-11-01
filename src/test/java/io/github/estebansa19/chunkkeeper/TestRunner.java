@@ -167,8 +167,12 @@ public final class TestRunner {
         check(BlockRules.isPlayerBlock("minecraft:white_bed"), "bed");
         check(!BlockRules.isPlayerBlock("minecraft:stone"), "stone");
         check(!BlockRules.isPlayerBlock("minecraft:mossy_stone_bricks"), "mossy stone bricks are generated");
-        check(BlockRules.isPlayerBlockEntity(map("id", "minecraft:chest", "Items", list(Nbt.COMPOUND, map("id", "minecraft:dirt"))), true),
-            "opened chest with items");
+        Map<String, Object> chestWithItems = map("id", "minecraft:chest", "Items", list(Nbt.COMPOUND, map("id", "minecraft:dirt")));
+        check(BlockRules.isPlayerBlockEntity(chestWithItems, false), "chest outside structures");
+        check(!BlockRules.isPlayerBlockEntity(map("id", "minecraft:dispenser", "Items", list(Nbt.COMPOUND, map("id", "minecraft:arrow"))), true),
+            "pre-filled dispenser inside a trial chamber");
+        check(!BlockRules.isPlayerBlockEntity(map("id", "minecraft:beehive"), false), "natural bee nest");
+        check(BlockRules.isEndPortal("minecraft:end_portal") && !BlockRules.isEndPortal("minecraft:end_portal_frame"), "activated end portal only");
         check(!BlockRules.isPlayerBlockEntity(map("id", "minecraft:chest", "LootTable", "minecraft:chests/simple_dungeon"), false), "unopened loot chest");
         check(BlockRules.isPlayerEntity(map("id", "minecraft:wolf", "Owner", new int[] { 1, 2, 3, 4 }), false), "tamed wolf");
         check(!BlockRules.isPlayerEntity(map("id", "minecraft:villager", "Xp", 0, "VillagerData", map("level", 1)), false), "untouched villager");
