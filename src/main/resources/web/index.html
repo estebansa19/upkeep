@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="ck-token" content="{{TOKEN}}">
+  <title>Chunk Keeper</title>
+  <link rel="icon" href="favicon.svg">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><img src="favicon.svg" alt=""><span>Chunk Keeper</span></div>
+  <div id="worldTitle" class="world-title"></div>
+  <div class="spacer"></div>
+  <div id="lockBadge" class="badge danger hidden" title="Minecraft has this world open">Minecraft is running</div>
+  <div id="scanStatus" class="scan-status"></div>
+  <button id="btnChangeWorld" class="ghost hidden">Change world</button>
+  <button id="btnHelp" class="ghost">Help</button>
+</header>
+
+<!-- ============================================================ start screen -->
+<main id="screenStart" class="screen start">
+  <section class="hero">
+    <h1>Keep what you built.<br>Regenerate the rest.</h1>
+    <p class="lead">Pick a world, paint the chunks you want to keep, and Chunk Keeper writes a <b>copy</b> of the world
+      where everything else generates fresh with your current Minecraft version. Your original world is never changed.</p>
+    <ol class="steps">
+      <li><span>1</span><div><b>Pick a world</b><br>Chunk Keeper draws a map of every chunk that exists, per dimension.</div></li>
+      <li><span>2</span><div><b>Paint what to keep</b><br>Suggestions point out your builds, storage, pets, villagers and portals.</div></li>
+      <li><span>3</span><div><b>Review and apply</b><br>A dry run lists anything at risk before the copy is written.</div></li>
+    </ol>
+  </section>
+  <section class="picker">
+    <div class="picker-head">
+      <h2>Your worlds</h2>
+      <input id="worldFilter" type="search" placeholder="Filter by name" autocomplete="off">
+    </div>
+    <div id="worldList" class="world-list"><div class="empty">Looking for worlds…</div></div>
+    <div class="open-path">
+      <input id="worldPath" placeholder="…or paste the path of a world folder (the one with level.dat)" autocomplete="off">
+      <button id="btnOpenPath" class="primary">Open</button>
+    </div>
+    <p id="startError" class="error hidden"></p>
+  </section>
+</main>
+
+<!-- ============================================================ main screen -->
+<main id="screenMain" class="screen main hidden">
+  <aside class="sidebar">
+    <nav class="tabs" role="tablist">
+      <button data-tab="select" class="active" role="tab"><span>1</span>Select</button>
+      <button data-tab="review" role="tab"><span>2</span>Review</button>
+      <button data-tab="apply" role="tab"><span>3</span>Apply</button>
+    </nav>
+
+    <section id="tab-select" class="tab">
+      <div class="card summary">
+        <div class="counts">
+          <div><span class="dot keep"></span><b id="cntKeep">0</b><small>chunks kept</small></div>
+          <div><span class="dot regen"></span><b id="cntRegen">0</b><small>to regenerate</small></div>
+        </div>
+        <p class="muted small">Paint the chunks you want to <b class="t-keep">keep</b>. Everything else in this dimension will be
+          regenerated when you apply. Right-drag moves the map.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Suggestions</h3><span id="suggCount" class="pill">…</span></div>
+        <p class="muted small">Chunks that look like your work are outlined in <b class="t-sugg">orange</b>.</p>
+        <div id="categories" class="categories"></div>
+        <label class="row slider-row">
+          <input type="checkbox" id="catVisited" checked>
+          <span>Places you spent at least</span>
+          <select id="visitedMinutes">
+            <option value="10">10 min</option><option value="30">30 min</option><option value="60" selected>1 hour</option>
+            <option value="180">3 hours</option><option value="600">10 hours</option>
+          </select>
+        </label>
+        <label class="row slider-row">
+          <span>Safety margin around them</span>
+          <select id="ringSize"><option value="0">none</option><option value="1" selected>1 chunk</option><option value="2">2 chunks</option><option value="3">3 chunks</option></select>
+        </label>
+        <div class="btn-row">
+          <button id="btnAcceptSugg" class="primary">Keep suggested chunks</button>
+        </div>
+        <ul id="globalNotes" class="notes small muted"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Selection</h3></div>
+        <div class="btn-grid">
+          <button id="btnKeepAll" class="secondary">Keep everything</button>
+          <button id="btnClear" class="secondary">Clear selection</button>
+          <button id="btnImport" class="secondary">Import file…</button>
+          <button id="btnExport" class="secondary">Export file</button>
+        </div>
+        <p class="muted small">Files use the MCA Selector format, so you can move selections between both tools.
+          Saved automatically: <span id="saveState">saved</span></p>
+        <input type="file" id="importFile" accept=".csv,.txt" class="hidden">
+      </div>
+
+      <div id="detailsCard" class="card hidden">
+        <div class="card-head"><h3 id="detailsTitle">Chunk</h3><button id="btnCloseDetails" class="icon" title="Close">✕</button></div>
+        <div id="details" class="details small"></div>
+      </div>
+    </section>
+
+    <section id="tab-review" class="tab hidden">
+      <div class="card">
+        <h3>Which dimensions should be regenerated?</h3>
+        <p class="muted small">Dimensions left off are copied exactly as they are.</p>
+        <div id="dimToggles" class="dim-toggles"></div>
+        <div class="btn-row"><button id="btnDryRun" class="primary">Run dry run</button></div>
+      </div>
+      <div id="dryResult" class="hidden">
+        <div class="card"><h3>What will happen</h3><div id="drySummary"></div></div>
+        <div class="card">
+          <div class="card-head"><h3>Things to check</h3><span id="dryCounts" class="pill"></span></div>
+          <div id="dryWarnings" class="warnings"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-apply" class="tab hidden">
+      <div class="card">
+        <h3>Create the regenerated copy</h3>
+        <p class="muted small">Your world stays untouched. A new world folder is written with only the kept chunks; Minecraft
+          generates everything else again the next time you visit it.</p>
+        <label class="field"><span>New world folder</span><input id="outPath" autocomplete="off"></label>
+        <label class="field"><span>Name shown in Minecraft</span><input id="outName" autocomplete="off"></label>
+        <label class="check">
+          <input type="checkbox" id="stripBlending">
+          <span><b>Sharp borders</b> – remove the "old chunk" mark from kept chunks.<br>
+            <small class="muted">When Minecraft considers kept chunks old, it blends new terrain into them: the old biome continues about
+              5 chunks into the regenerated land and the terrain there is smoothed. With sharp borders, the new world generation reaches
+              right up to your builds, but you may see straight edges along chunk lines. Leave it off if unsure.</small></span>
+        </label>
+        <div id="applyGate" class="gate hidden">
+          <label class="check"><input type="checkbox" id="ackWarnings"><span>I checked the warnings in Review and want to continue.</span></label>
+        </div>
+        <p id="applyLocked" class="error hidden">Minecraft has this world open. Close the game (or the server) first.</p>
+        <div class="btn-row"><button id="btnApply" class="primary big">Create regenerated copy</button></div>
+        <div id="applyProgress" class="progress hidden"><div class="bar"><div id="applyBar"></div></div><div id="applyPhase" class="small muted"></div></div>
+        <div id="applyResult" class="hidden"></div>
+      </div>
+    </section>
+  </aside>
+
+  <section class="mapwrap">
+    <div id="dimTabs" class="dimtabs"></div>
+    <canvas id="map" tabindex="0"></canvas>
+    <div class="toolbar" id="toolbar">
+      <button data-tool="pan" title="Move the map (H)"><svg viewBox="0 0 24 24"><path d="M12 2l3 3h-2v6h6V9l3 3-3 3v-2h-6v6h2l-3 3-3-3h2v-6H5v2l-3-3 3-3v2h6V5H9z"/></svg></button>
+      <button data-tool="keep" title="Paint chunks to keep (B)" class="active"><svg viewBox="0 0 24 24"><path d="M7 14c-1.7 0-3 1.3-3 3 0 1.3-1.2 2-2 2 .9 1.2 2.5 2 4 2 2.2 0 4-1.8 4-4 0-1.7-1.3-3-3-3zm13.7-9.3-1.4-1.4a1 1 0 0 0-1.4 0L9 12.2l2.8 2.8 8.9-8.9a1 1 0 0 0 0-1.4z"/></svg></button>
+      <button data-tool="erase" title="Remove from selection (E)"><svg viewBox="0 0 24 24"><path d="M16.2 3.6 21.4 8.8c.8.8.8 2 0 2.8L12 21H6l-3.4-3.4c-.8-.8-.8-2 0-2.8L13.4 3.6c.8-.8 2-.8 2.8 0zM8.8 10.2 4 15l3 3h4.2l2.4-2.4z"/></svg></button>
+      <button data-tool="boxkeep" title="Keep a rectangle (K)"><svg viewBox="0 0 24 24"><path d="M3 3h18v18H3zm2 2v14h14V5zm3 3h8v8H8z"/></svg></button>
+      <button data-tool="boxerase" title="Remove a rectangle (X)"><svg viewBox="0 0 24 24"><path d="M3 3h18v18H3zm2 2v14h14V5zm3.5 2.1L12 10.6l3.5-3.5 1.4 1.4-3.5 3.5 3.5 3.5-1.4 1.4-3.5-3.5-3.5 3.5-1.4-1.4 3.5-3.5-3.5-3.5z"/></svg></button>
+      <button data-tool="inspect" title="Inspect a chunk (I)"><svg viewBox="0 0 24 24"><path d="M10 2a8 8 0 0 1 6.3 12.9l5.4 5.4-1.4 1.4-5.4-5.4A8 8 0 1 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg></button>
+      <div class="sep"></div>
+      <div class="brush" title="Brush size ([ and ])">
+        <button data-brush="1" class="active">1</button><button data-brush="3">3</button><button data-brush="5">5</button><button data-brush="9">9</button>
+      </div>
+      <div class="sep"></div>
+      <button id="btnUndo" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M12.5 8c-2.6 0-5 1-6.9 2.6L2 7v9h9l-3.6-3.6A8 8 0 0 1 20.2 16l2.4-.8A10.5 10.5 0 0 0 12.5 8z"/></svg></button>
+      <button id="btnRedo" title="Redo (Ctrl+Y)"><svg viewBox="0 0 24 24"><path d="M18.4 10.6A10.5 10.5 0 0 0 1.4 15.2l2.4.8A8 8 0 0 1 16.6 12.4L13 16h9V7z"/></svg></button>
+    </div>
+    <div class="viewbar">
+      <label title="Suggestions (S)"><input type="checkbox" id="ovSugg" checked> Suggestions</label>
+      <label title="Show what will be regenerated (P)"><input type="checkbox" id="ovPreview"> Regenerate preview</label>
+      <label title="Time players spent (T)"><input type="checkbox" id="ovHeat"> Time spent</label>
+      <label title="Chunk grid (G)"><input type="checkbox" id="ovGrid" checked> Grid</label>
+      <div class="sep"></div>
+      <form id="jumpForm" class="jump"><input id="jumpInput" placeholder="Go to x z" autocomplete="off"></form>
+      <button id="btnFit" class="ghost small" title="Fit to world (F)">Fit</button>
+    </div>
+    <div class="legend">
+      <span><i class="sw keep"></i>Keep</span><span><i class="sw sugg"></i>Suggested</span>
+      <span><i class="sw regen"></i>Will regenerate</span><span><i class="sw proto"></i>Unfinished edge chunk</span>
+    </div>
+    <div id="statusbar" class="statusbar">Move the mouse over the map</div>
+    <div id="mapEmpty" class="map-empty hidden">This dimension has no generated chunks.</div>
+  </section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<dialog id="helpDialog">
+  <div class="dialog-head"><h2>How Chunk Keeper works</h2><button class="icon" onclick="this.closest('dialog').close()">✕</button></div>
+  <div class="dialog-body">
+    <h3>The idea</h3>
+    <p>Minecraft only generates a chunk once. Chunk Keeper writes a copy of your world that contains only the chunks you keep;
+      every other chunk is missing, so Minecraft generates it again with its current world generation (new biomes, new structures)
+      the next time a player gets close. Same seed, same terrain shape; only what the new version changed will differ.</p>
+    <h3>Colors</h3>
+    <ul>
+      <li><i class="sw keep"></i> <b>Keep</b> – copied exactly as it is.</li>
+      <li><i class="sw sugg"></i> <b>Suggested</b> – looks like your work (player-placed blocks, storage, pets and villagers you traded with, portals, where players are).</li>
+      <li><i class="sw regen"></i> <b>Will regenerate</b> – shown with "Regenerate preview".</li>
+      <li><i class="sw proto"></i> <b>Unfinished edge chunk</b> – at the border of explored land; regenerating these is recommended.</li>
+    </ul>
+    <h3>Mouse and keys</h3>
+    <ul class="keys">
+      <li><kbd>Left drag</kbd> use the tool · <kbd>Right drag</kbd> or <kbd>Space</kbd>+drag move · <kbd>Wheel</kbd> zoom</li>
+      <li><kbd>B</kbd> keep brush · <kbd>E</kbd> remove brush · <kbd>K</kbd> keep box · <kbd>X</kbd> remove box · <kbd>I</kbd> inspect · <kbd>H</kbd> move</li>
+      <li><kbd>[</kbd> <kbd>]</kbd> brush size · <kbd>Ctrl+Z</kbd> undo · <kbd>Ctrl+Y</kbd> redo · <kbd>F</kbd> fit · <kbd>G</kbd> grid · <kbd>S</kbd> suggestions · <kbd>P</kbd> preview · <kbd>T</kbd> time spent</li>
+    </ul>
+    <h3>Borders between kept and regenerated land</h3>
+    <p>If the Minecraft version you open the copy with considers your kept chunks "old", it blends the new terrain into them: the old
+      biome continues roughly 5 chunks into the regenerated area and the terrain there is smoothed. Tick <b>Sharp borders</b> when
+      applying to switch that off. Water at the edge of kept chunks can flow into the new terrain, and the review lists those spots.</p>
+    <h3>Safety</h3>
+    <p>Chunk Keeper only reads your world. Selections and the map cache are stored in your ChunkKeeper folder, not in the world.
+      Close Minecraft before applying, and keep a backup of worlds you care about.</p>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
