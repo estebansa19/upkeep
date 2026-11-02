@@ -1,5 +1,7 @@
 package io.github.estebansa19.chunkkeeper.render;
 
+import io.github.estebansa19.chunkkeeper.game.GameVersions;
+
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.*;
@@ -7,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -80,37 +81,7 @@ public final class BlockColors {
     }
 
     /** Looks for a client jar matching {@code version} in common launcher folders, else the newest one found. */
-    public static Path findClientJar(String version) {
-        String home = System.getProperty("user.home");
-        String appData = Optional.ofNullable(System.getenv("APPDATA")).orElse(home + "/AppData/Roaming");
-        List<Path> roots = List.of(
-            Paths.get(appData, "PrismLauncher/libraries/com/mojang/minecraft"),
-            Paths.get(home, ".local/share/PrismLauncher/libraries/com/mojang/minecraft"),
-            Paths.get(home, "Library/Application Support/PrismLauncher/libraries/com/mojang/minecraft"),
-            Paths.get(appData, ".minecraft/versions"), Paths.get(home, ".minecraft/versions"),
-            Paths.get(home, "Library/Application Support/minecraft/versions"),
-            Paths.get(appData, "ModrinthApp/meta/versions"));
-        List<Path> all = new ArrayList<>();
-        for (Path root : roots) {
-            if (!Files.isDirectory(root)) continue;
-            try (Stream<Path> s = Files.list(root)) {
-                for (Path v : (Iterable<Path>) s::iterator) {
-                    String n = v.getFileName().toString();
-                    for (Path c : List.of(v.resolve("minecraft-" + n + "-client.jar"), v.resolve(n + ".jar")))
-                        if (Files.isRegularFile(c)) {
-                            if (n.equals(version)) return c;
-                            all.add(c);
-                        }
-                }
-            } catch (IOException ignored) {
-                // unreadable launcher folder
-            }
-        }
-        all.sort(Comparator.comparing((Path p) -> {
-            try { return Files.getLastModifiedTime(p).toMillis(); } catch (IOException e) { return 0L; }
-        }).reversed());
-        return all.isEmpty() ? null : all.get(0);
-    }
+    public static Path findClientJar(String version) { return GameVersions.findClientJar(version); }
 
     /** RGB for a block id such as "minecraft:oak_stairs". */
     public int color(String id) {

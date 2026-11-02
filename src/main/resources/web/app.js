@@ -142,6 +142,7 @@
     for (const ds of S.dims.values()) loadSelection(ds);
     queueInfos();
     startPolling();
+    loadVersions();
     selectTab('select');
   }
 
@@ -912,6 +913,8 @@
     $('#btnDryRun').onclick = dryRun;
     $('#btnApply').onclick = apply;
     $('#ackWarnings').onchange = updateApplyGate;
+    $('#targetVersion').onchange = () => { S.target = $('#targetVersion').value; S.dryStale = true; S.server = null; updateApplyGate(); };
+    $$('input[name=borders]').forEach((r) => (r.onchange = () => { renderSharp(); updateApplyGate(); }));
     $('#btnHelp').onclick = () => $('#helpDialog').showModal();
     $('#btnChangeWorld').onclick = async () => { await flushSaves(); S.session = null; showStart(); };
     $('#worldFilter').oninput = renderWorlds;
@@ -979,7 +982,7 @@
     btn.textContent = 'Checking…';
     try {
       await flushSaves();
-      const r = await post('dryrun', { dims: dimsRequest() });
+      const r = await post('dryrun', { dims: dimsRequest(), target: S.target });
       S.dry = r;
       S.dryStale = false;
       renderDry(r);
@@ -1000,11 +1003,10 @@
       h += '<tr><td>' + esc(d.label) + '</td><td>' + fmt(d.keep) + '</td><td>' + fmt(d.regenerate) + '</td><td>' + fmt(d.regenerateProto) + '</td></tr>';
     }
     h += '</table>';
-    for (const d of r.dims.filter((x) => x.enabled && x.keep > 0)) {
+    for (const d of r.dims.filter((x) => x.enabled && x.keep > 0 && x.key === 'overworld')) {
       h += '<p class="small muted">' + esc(d.label) + ': kept chunks were saved with data version ' + d.keptMinDataVersion
-        + (d.keptMaxDataVersion !== d.keptMinDataVersion ? '–' + d.keptMaxDataVersion : '') + '. A newer Minecraft version that changed world'
-        + ' generation marks them as old when it loads them, so the old biome continues about 5 chunks into the regenerated land.'
-        + (d.keptWithBlendingTag > 0 ? ' ' + fmt(d.keptWithBlendingTag) + ' of them already carry that mark ("Remove old-chunk marks" on the Apply tab clears it).' : '')
+        + (d.keptMaxDataVersion !== d.keptMinDataVersion ? '–' + d.keptMaxDataVersion : '') + '.'
+        + (r.target.marker ? ' Minecraft ' + esc(r.target.version) + ' marks chunks saved before ' + r.target.marker + ' as old when it loads them.' : '')
         + '</p>';
     }
     $('#drySummary').innerHTML = h;
@@ -1045,7 +1047,86 @@
         $('#outName').value = d.name;
       } catch (e) { /* the fields stay editable */ }
     }
+    renderSharp();
     updateApplyGate();
+  }
+
+  // ------------------------------------------------------------------ borders (old-chunk marks)
+  async function loadVersions() {
+    try {
+      const r = await api('versions');
+      $('#targetVersion').innerHTML = r.versions.map((v) => '<option>' + esc(v.id) + '</option>').join('');
+      $('#targetVersion').value = r.default;
+      S.target = r.default;
+    } catch (e) { /* the dry run then uses the world's own version */ }
+  }
+
+  const bordersMode = () => ($('input[name=borders]:checked') || {}).value || 'blended';
+
+  /** Overworld line of the last fresh dry run, or null. */
+  function overworldDry() {
+    if (!S.dry || S.dryStale) return null;
+    return S.dry.dims.find((d) => d.key === 'overworld' && d.enabled && d.keep > 0) || null;
+  }
+
+  /** Sharp borders need the server step when kept chunks are older than the version's marker (or it's unknown). */
+  const needsServer = () => { const d = overworldDry(); return !!d && d.keptBelowMarker !== 0; };
+
+  const sharpReady = () => !needsServer() || !!(S.server && S.server.present && S.server.java && S.server.eula);
+
+  async function renderSharp() {
+    const box = $('#sharpBox');
+    if (bordersMode() !== 'sharp' || !S.dry || S.dryStale) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    const d = overworldDry(), v = esc(S.dry.target.version);
+    if (!d) { box.innerHTML = '<p class="small muted">Only the Overworld blends, and it isn\'t being regenerated here. Nothing to do.</p>'; return; }
+    if (!needsServer()) {
+      box.innerHTML = '<p class="small">Minecraft ' + v + ' won\'t mark these kept chunks as old again, so Chunk Keeper just removes the marks'
+        + (d.keptWithBlendingTag ? ' (' + fmt(d.keptWithBlendingTag) + ' chunks have one)' : '') + '. No extra step needed.</p>';
+      return;
+    }
+    if (!S.server || S.server.version !== S.dry.target.version) {
+      box.innerHTML = '<p class="small muted">Checking the Minecraft ' + v + ' server…</p>';
+      try { S.server = await api('server?version=' + encodeURIComponent(S.dry.target.version)); } catch (e) { box.innerHTML = '<p class="error small">' + esc(e.message) + '</p>'; return; }
+    }
+    const s = S.server, dl = s.download && !s.download.finished ? s.download : null;
+    let h = '<p class="small">' + (d.keptBelowMarker > 0 ? fmt(d.keptBelowMarker) + ' kept chunks were last saved by an older version, so Minecraft ' + v
+      + ' would mark them as old again.' : 'Chunk Keeper can\'t tell whether Minecraft ' + v + ' marks these chunks.')
+      + ' To prevent that, Chunk Keeper runs the official Minecraft ' + v + ' server once on the new copy. It re-saves the kept chunks'
+      + ' without generating any land, then Chunk Keeper removes the marks.</p><div class="setup">';
+    if (s.present) h += '<div><span class="t-keep">✓</span> Minecraft ' + v + ' server ready</div>';
+    else if (dl) h += '<div>Downloading the server… ' + (dl.total ? fmt(Math.round(dl.done / 1048576)) + ' / ' + fmt(Math.round(dl.total / 1048576)) + ' MB' : '') + '</div>';
+    else {
+      h += '<div><span class="error">✗</span> Minecraft ' + v + ' server not set up yet</div>'
+        + (s.download && s.download.error ? '<div class="error small">' + esc(s.download.error) + '</div>' : '')
+        + '<button id="btnServerDownload" class="secondary">Download from Mojang (about 60 MB)</button>'
+        + '<div class="small muted">or use a server jar you already have:</div>'
+        + '<div class="open-path"><input id="serverJarPath" placeholder="path to server.jar" autocomplete="off"><button id="btnServerImport" class="secondary">Use</button></div>';
+    }
+    h += s.java ? '<div><span class="t-keep">✓</span> Java ' + s.javaVersion + '</div>'
+      : '<div><span class="error">✗</span> Needs Java ' + s.javaNeeded + '. Prism Launcher or the Minecraft Launcher can install it, or set JAVA_HOME.</div>';
+    h += '<label class="check"><input type="checkbox" id="eulaBox"' + (s.eula ? ' checked' : '') + '><span>I accept the <a href="' + esc(s.eulaUrl)
+      + '" target="_blank" rel="noopener">Minecraft EULA</a> (the server needs it)</span></label></div>'
+      + '<p class="small muted">It is a plain Minecraft server, so don\'t use this for worlds that need mods for their blocks, biomes or dimensions.</p>';
+    box.innerHTML = h;
+    updateApplyGate();
+    const done = (r) => { S.server = r; renderSharp(); };
+    $('#eulaBox').onchange = (e) => post('server/eula', { version: s.version, accept: e.target.checked }).then(done).catch((err) => toast(err.message, true));
+    const imp = $('#btnServerImport');
+    if (imp) imp.onclick = () => post('server/import', { version: s.version, path: $('#serverJarPath').value }).then(done).catch((err) => toast(err.message, true));
+    const down = $('#btnServerDownload');
+    if (down) down.onclick = async () => {
+      try {
+        await post('server/download', { version: s.version });
+        for (;;) {
+          S.server = await api('server?version=' + encodeURIComponent(s.version));
+          renderSharp();
+          if (!S.server.download || S.server.download.finished) break;
+          await new Promise((res) => setTimeout(res, 700));
+        }
+        updateApplyGate();
+      } catch (err) { toast(err.message, true); }
+    };
   }
 
   function updateApplyGate() {
@@ -1058,6 +1139,7 @@
     if (!anyOn) reason = 'Choose what to regenerate in Review first';
     else if (!S.dry || S.dryStale) reason = 'Run the dry run in Review first';
     else if (needAck && !$('#ackWarnings').checked) reason = 'Confirm that you checked the warnings';
+    else if (bordersMode() === 'sharp' && !sharpReady()) reason = 'Finish setting up Sharp borders';
     else if (S.locked) reason = 'Close Minecraft first';
     if (S.applying) reason = 'Working…';
     btn.disabled = !!reason;
@@ -1071,11 +1153,12 @@
     $('#applyProgress').classList.remove('hidden');
     try {
       await flushSaves();
-      await post('apply', { dims: dimsRequest(), output: $('#outPath').value, newName: $('#outName').value, stripBlending: $('#stripBlending').checked });
+      await post('apply', { dims: dimsRequest(), output: $('#outPath').value, newName: $('#outName').value, target: S.target, borders: bordersMode() });
       for (;;) {
         await new Promise((res) => setTimeout(res, 400));
         const p = await api('apply');
-        $('#applyPhase').textContent = p.phase + (p.total ? ' · ' + fmt(p.done) + ' / ' + fmt(p.total) + ' region files' : '');
+        const unit = p.phase.startsWith('re-saving') ? ' chunks' : ' region files';
+        $('#applyPhase').textContent = p.phase + (p.total ? ' · ' + fmt(p.done) + ' / ' + fmt(p.total) + unit : '');
         $('#applyBar').style.width = (p.total ? Math.round(100 * p.done / p.total) : 5) + '%';
         if (p.error) throw new Error(p.error);
         if (p.result) { showResult(p.result); break; }
@@ -1093,11 +1176,17 @@
   function showResult(r) {
     const el = $('#applyResult');
     el.classList.remove('hidden');
-    let h = r.verified ? '<div class="ok-box"><b>Done and verified.</b> Every kept chunk was copied exactly; nothing else was left behind.</div>'
+    let h = r.verified ? '<div class="ok-box"><b>Done and verified.</b> ' + (r.upgradedWith ? 'Every kept chunk is there, re-saved by Minecraft '
+      + esc(r.upgradedWith) : 'Every kept chunk was copied exactly') + '; nothing else was left behind.</div>'
       : '<p class="error"><b>Written, but verification found problems:</b></p><ul class="small">' + r.problems.slice(0, 20).map((p) => '<li>' + esc(p) + '</li>').join('') + '</ul>';
     h += '<table class="sumtable"><tr><th>Dimension</th><th>Kept</th><th>Removed</th></tr>';
     for (const d of r.dims) h += '<tr><td>' + esc((S.dims.get(d.key) || { label: d.key }).label) + '</td><td>' + fmt(d.keptChunks) + '</td><td>' + fmt(d.removedChunks) + '</td></tr>';
-    h += '</table><p class="small">New world: <code>' + esc(r.output) + '</code></p>'
+    h += '</table>';
+    const marks = r.dims.reduce((n, d) => n + d.strippedBlending, 0);
+    if (r.upgradedWith) h += '<p class="small">Re-saved with the Minecraft ' + esc(r.upgradedWith) + ' server and old-chunk marks removed'
+      + (marks ? ' (' + fmt(marks) + ' chunks)' : '') + ': new land will come right up to the kept chunks.</p>';
+    else if (marks) h += '<p class="small">Old-chunk marks removed from ' + fmt(marks) + ' kept chunks.</p>';
+    h += '<p class="small">New world: <code>' + esc(r.output) + '</code></p>'
       + '<p class="small muted">Open it in Minecraft (it is next to your original world). Removed chunks are generated again as you explore.</p>'
       + '<div class="btn-row"><button id="btnReveal" class="secondary">Open folder</button></div>';
     el.innerHTML = h;

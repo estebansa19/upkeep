@@ -1,6 +1,7 @@
 package io.github.estebansa19.chunkkeeper;
 
 import io.github.estebansa19.chunkkeeper.chunk.Chunk;
+import io.github.estebansa19.chunkkeeper.game.GameVersions;
 import io.github.estebansa19.chunkkeeper.nbt.Nbt;
 import io.github.estebansa19.chunkkeeper.nbt.NbtList;
 import io.github.estebansa19.chunkkeeper.plan.Applier;
@@ -215,5 +216,51 @@ public final class TestRunner {
         eq("Test 2", Nbt.string(Nbt.compound(Nbt.readFile(out.resolve("level.dat")), "Data"), "LevelName"), "renamed");
         check(Files.exists(out.resolve("icon.png")), "other files copied");
         try (RegionFile src = RegionFile.open(ow.resolve("region/r.0.0.mca"))) { eq(4, src.chunkCount(), "source untouched"); }
+    }
+
+    static final class MarkerFixture { static final int BLENDING_VERSION = 4997; static final int OTHER = 7; }
+
+    static void testReadsIntConstantFromClassFile() throws Exception {
+        byte[] b;
+        try (var in = TestRunner.class.getResourceAsStream("TestRunner$MarkerFixture.class")) { b = in.readAllBytes(); }
+        eq(4997, GameVersions.intConstant(b, "BLENDING_VERSION"), "marker constant");
+        eq(7, GameVersions.intConstant(b, "OTHER"), "second constant");
+        eq(null, GameVersions.intConstant(b, "MISSING"), "absent field");
+        eq(null, GameVersions.intConstant(new byte[] { 1, 2, 3 }, "BLENDING_VERSION"), "not a class file");
+    }
+
+    static void testInstanceVersionFromPrismPack() throws Exception {
+        Path inst = Files.createTempDirectory("ck-inst");
+        Files.writeString(inst.resolve("mmc-pack.json"), "{\"components\":[{\"uid\":\"org.lwjgl3\",\"version\":\"3.3.3\"},"
+            + "{\"uid\":\"net.minecraft\",\"version\":\"26.3\"},{\"uid\":\"net.fabricmc.fabric-loader\",\"version\":\"0.17.0\"}]}");
+        Path w = Files.createDirectories(inst.resolve("minecraft/saves/My World"));
+        eq("26.3", GameVersions.instanceVersion(w), "instance version");
+        eq(null, GameVersions.instanceVersion(Files.createDirectories(Files.createTempDirectory("ck-plain").resolve("saves/W"))), "no launcher pack");
+    }
+
+    static void testFinishUpgradeStripsMarksAndChecksVersions() throws Exception {
+        Path world = Files.createTempDirectory("ck-up").resolve("Copy");
+        Path region = Files.createDirectories(world.resolve("dimensions/minecraft/overworld/region"));
+        Nbt.writeFileGzip(world.resolve("level.dat"), map("Data", map("LevelName", "Copy", "DataVersion", 5023, "Version", map("Name", "26.3"))));
+        List<RegionWriter.Entry> e = new ArrayList<>();
+        int[] dvs = { 5023, 5023, 4790 };
+        for (int i = 0; i < 3; i++) {
+            Map<String, Object> n = map("DataVersion", dvs[i], "xPos", i, "zPos", 0, "Status", "minecraft:full",
+                "blending_data", map("min_section", -4, "max_section", 20));
+            e.add(new RegionWriter.Entry(i, new RegionFile.RawChunk(RegionFile.ZLIB, zlib(Nbt.write(n)), false), 1));
+        }
+        RegionWriter.write(region.resolve("r.0.0.mca"), 0, 0, e);
+        List<String> problems = new ArrayList<>();
+        Set<Long> keep = Set.of(WorldScan.key(0, 0), WorldScan.key(2, 0));
+        Map<String, Integer> stripped = Applier.finishUpgrade(World.open(world), Map.of("overworld", keep), Map.of("overworld", 2), 4997, problems);
+        eq(3, stripped.get("overworld"), "marks removed");
+        check(problems.stream().anyMatch(p -> p.contains("1,0 should be gone")), "extra chunk reported: " + problems);
+        check(problems.stream().anyMatch(p -> p.contains("2,0 was not upgraded")), "old chunk reported: " + problems);
+        check(problems.stream().anyMatch(p -> p.contains("3 chunks after the upgrade, expected 2")), "count reported: " + problems);
+        try (RegionFile rf = RegionFile.open(region.resolve("r.0.0.mca"))) {
+            for (int i = 0; i < 3; i++) check(!rf.nbt(i).containsKey("blending_data"), "no mark left in chunk " + i);
+            eq(5023L, ((Number) rf.nbt(0).get("DataVersion")).longValue(), "data kept");
+        }
+        check(!Files.exists(region.resolve("r.0.0.mca.tmp")), "no temp file left");
     }
 }

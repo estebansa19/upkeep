@@ -1,5 +1,7 @@
 package io.github.estebansa19.chunkkeeper.plan;
 
+import io.github.estebansa19.chunkkeeper.game.ServerJars;
+import io.github.estebansa19.chunkkeeper.game.ServerUpgrade;
 import io.github.estebansa19.chunkkeeper.nbt.Nbt;
 import io.github.estebansa19.chunkkeeper.region.RegionFile;
 import io.github.estebansa19.chunkkeeper.region.RegionWriter;
@@ -21,7 +23,13 @@ import java.util.zip.DeflaterOutputStream;
 public final class Applier {
     private Applier() {}
 
-    public record Options(Path output, Map<String, Set<Long>> keep, boolean stripBlending, String newName) {}
+    /**
+     * {@code stripBlending}: remove old-chunk marks from kept chunks. {@code upgrade}: first re-save the new copy with this
+     * Minecraft server (so the version it is played in never marks the kept chunks again), then remove the marks. May be null.
+     */
+    public record Options(Path output, Map<String, Set<Long>> keep, boolean stripBlending, String newName, ServerJars.Ready upgrade) {
+        public Options(Path output, Map<String, Set<Long>> keep, boolean stripBlending, String newName) { this(output, keep, stripBlending, newName, null); }
+    }
 
     public static final class Progress {
         public volatile String phase = "starting";
@@ -32,7 +40,8 @@ public final class Applier {
 
     public record DimResult(String key, int keptChunks, int removedChunks, int strippedBlending, int regionFilesWritten, int regionFilesDropped) {}
 
-    public record Result(Path output, List<DimResult> dims, long filesCopied, boolean verified, List<String> problems) {}
+    /** {@code upgradedWith}: the server version that re-saved the copy, or null. */
+    public record Result(Path output, List<DimResult> dims, long filesCopied, boolean verified, List<String> problems, String upgradedWith) {}
 
     public static Result run(World w, Options o, Progress p) throws IOException {
         Path src = w.dir, out = o.output().toAbsolutePath().normalize();
@@ -90,7 +99,7 @@ public final class Applier {
                             int cx = rf.rx() * 32 + (i & 31), cz = rf.rz() * 32 + (i >> 5);
                             if (!keep.contains(WorldScan.key(cx, cz))) { if (kind.equals("region")) removed++; continue; }
                             RegionFile.RawChunk raw = rf.raw(i);
-                            if (o.stripBlending() && kind.equals("region")) {
+                            if (o.stripBlending() && o.upgrade() == null && kind.equals("region")) {
                                 RegionFile.RawChunk s = stripBlending(raw);
                                 if (s != raw) { stripped++; raw = s; }
                             }
@@ -116,7 +125,70 @@ public final class Applier {
 
         p.phase = "verifying";
         List<String> problems = verify(w, out, dims, o);
-        return new Result(out, results, copied[0], problems.isEmpty(), problems);
+        if (o.upgrade() == null || !problems.isEmpty()) return new Result(out, results, copied[0], problems.isEmpty(), problems, null);
+
+        p.phase = "re-saving kept chunks with the Minecraft " + o.upgrade().version() + " server";
+        p.done.set(0);
+        p.total.set(0);
+        try {
+            ServerUpgrade.run(o.upgrade(), out, c -> { p.done.set(c[0]); p.total.set(c[1]); });
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("interrupted");
+        }
+        p.phase = "removing old-chunk marks";
+        Map<String, Integer> expected = new HashMap<>();
+        for (DimResult r : results) expected.put(r.key(), r.keptChunks());
+        Map<String, Integer> stripped = finishUpgrade(World.open(out), o.keep(), expected, o.upgrade().dataVersion(), problems);
+        results.replaceAll(r -> new DimResult(r.key(), r.keptChunks(), r.removedChunks(), stripped.getOrDefault(r.key(), 0), r.regionFilesWritten(), r.regionFilesDropped()));
+        return new Result(out, results, copied[0], problems.isEmpty(), problems, o.upgrade().version());
+    }
+
+    /**
+     * After the server upgrade: removes the old-chunk marks from every chunk of the regenerated dimensions, in place,
+     * and checks that exactly the kept chunks are there ({@code expected}: count per dimension), all saved at
+     * {@code dataVersion} or newer. Returns marks removed per dimension.
+     */
+    public static Map<String, Integer> finishUpgrade(World out, Map<String, Set<Long>> keep, Map<String, Integer> expected, int dataVersion,
+                                              List<String> problems) throws IOException {
+        Map<String, Integer> stripped = new HashMap<>();
+        for (Map.Entry<String, Set<Long>> e : keep.entrySet()) {
+            Dimension d = out.dimension(e.getKey());
+            if (d == null) { problems.add(e.getKey() + ": dimension missing after the upgrade"); continue; }
+            Path dir = d.folder("region");
+            if (!Files.isDirectory(dir)) continue;
+            List<Path> files;
+            try (var s = Files.list(dir)) { files = s.filter(x -> RegionFile.coords(x.getFileName().toString()) != null).sorted().toList(); }
+            int n = 0, chunks = 0;
+            for (Path f : files) {
+                List<RegionWriter.Entry> entries = new ArrayList<>();
+                int rx, rz;
+                try (RegionFile rf = RegionFile.open(f)) {
+                    rx = rf.rx();
+                    rz = rf.rz();
+                    for (int i = 0; i < 1024; i++) {
+                        if (!rf.has(i)) continue;
+                        int cx = rx * 32 + (i & 31), cz = rz * 32 + (i >> 5);
+                        RegionFile.RawChunk raw = rf.raw(i);
+                        Map<String, Object> nbt = Nbt.read(RegionFile.decompress(raw));
+                        if (!e.getValue().contains(WorldScan.key(cx, cz))) problems.add(e.getKey() + " chunk " + cx + "," + cz + " should be gone");
+                        int dv = (int) Nbt.number(nbt, "DataVersion", 0);
+                        if (dv < dataVersion) problems.add(e.getKey() + " chunk " + cx + "," + cz + " was not upgraded (data version " + dv + ")");
+                        if (nbt.remove("blending_data") != null) { raw = zlib(nbt); n++; }
+                        entries.add(new RegionWriter.Entry(i, raw, rf.timestamp(i)));
+                    }
+                }
+                chunks += entries.size();
+                if (entries.isEmpty()) continue;
+                Path tmp = f.resolveSibling(f.getFileName() + ".tmp");
+                RegionWriter.write(tmp, rx, rz, entries);
+                Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING);
+            }
+            if (expected.containsKey(e.getKey()) && chunks != expected.get(e.getKey()))
+                problems.add(e.getKey() + ": " + chunks + " chunks after the upgrade, expected " + expected.get(e.getKey()));
+            stripped.put(e.getKey(), n);
+        }
+        return stripped;
     }
 
     /** Re-reads the output: kept chunks present and identical (or only blending removed), nothing else left. */
@@ -158,9 +230,12 @@ public final class Applier {
     /** Same chunk without its blending_data tag (zlib), or the input unchanged when it has none. */
     static RegionFile.RawChunk stripBlending(RegionFile.RawChunk raw) throws IOException {
         Map<String, Object> n = Nbt.read(RegionFile.decompress(raw));
-        if (n.remove("blending_data") == null) return raw;
+        return n.remove("blending_data") == null ? raw : zlib(n);
+    }
+
+    private static RegionFile.RawChunk zlib(Map<String, Object> nbt) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try (DeflaterOutputStream z = new DeflaterOutputStream(bos)) { z.write(Nbt.write(n)); }
+        try (DeflaterOutputStream z = new DeflaterOutputStream(bos)) { z.write(Nbt.write(nbt)); }
         return new RegionFile.RawChunk(RegionFile.ZLIB, bos.toByteArray(), false);
     }
 }

@@ -110,6 +110,7 @@
         <h3>Which dimensions should be regenerated?</h3>
         <p class="muted small">Dimensions left off are copied exactly as they are.</p>
         <div id="dimToggles" class="dim-toggles"></div>
+        <label class="field"><span>Minecraft version you'll play the copy in</span><select id="targetVersion"></select></label>
         <div class="btn-row"><button id="btnDryRun" class="primary">Run dry run</button></div>
       </div>
       <div id="dryResult" class="hidden">
@@ -128,14 +129,15 @@
           generates everything else again the next time you visit it.</p>
         <label class="field"><span>New world folder</span><input id="outPath" autocomplete="off"></label>
         <label class="field"><span>Name shown in Minecraft</span><input id="outName" autocomplete="off"></label>
-        <label class="check">
-          <input type="checkbox" id="stripBlending">
-          <span><b>Remove old-chunk marks</b> from kept chunks.<br>
-            <small class="muted">Minecraft blends new terrain into chunks it has marked as old: the old biome continues about 5 chunks into the
-              regenerated land and the terrain there is smoothed. This removes the marks your kept chunks already carry (for example from an
-              earlier upgrade). It cannot stop a newer Minecraft version from marking them again when it loads them, which happens when that
-              version changed world generation. Leave it off if unsure.</small></span>
-        </label>
+        <div class="field"><span>Borders next to the kept land</span>
+          <label class="check"><input type="radio" name="borders" value="blended" checked>
+            <span><b>Blended</b> (Minecraft's default)<br><small class="muted">Where Minecraft marks kept chunks as old, the new land next to
+              them keeps the old biome for about 5 chunks and the ground is smoothed, so there's no step at the border.</small></span></label>
+          <label class="check"><input type="radio" name="borders" value="sharp">
+            <span><b>Sharp</b><br><small class="muted">New land comes right up to the kept chunks. Borders follow chunk lines, and there can be a
+              step where the old and new ground don't match.</small></span></label>
+        </div>
+        <div id="sharpBox" class="sharp-box hidden"></div>
         <div id="applyGate" class="gate hidden">
           <label class="check"><input type="checkbox" id="ackWarnings"><span>I checked the warnings in Review and want to continue.</span></label>
         </div>

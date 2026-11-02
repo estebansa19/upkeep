@@ -17,12 +17,16 @@ public final class DryRun {
     public record Warning(String level, String dim, int cx, int cz, String text) {}
 
     public record DimSummary(String key, String label, boolean enabled, int existing, int full, int proto, int keep, int regenerate,
-                             int regenerateFull, int regenerateProto, int keptWithBlendingTag, int keptMinDataVersion, int keptMaxDataVersion) {}
+                             int regenerateFull, int regenerateProto, int keptWithBlendingTag, int keptMinDataVersion, int keptMaxDataVersion,
+                             int keptBelowMarker) {}
 
-    public record Report(List<DimSummary> dims, List<Warning> warnings, int dangerCount, int warnCount, int infoCount) {}
+    /** The Minecraft version the copy will be played in. {@code marker}: chunks saved before it get the old-chunk mark (null: unknown). */
+    public record Target(String version, Integer marker) {}
+
+    public record Report(List<DimSummary> dims, List<Warning> warnings, int dangerCount, int warnCount, int infoCount, Target target) {}
 
     /** {@code keep}: dimension key -> chunks to keep, for every dimension that will be regenerated. */
-    public static Report run(WorldScan scan, Map<String, Set<Long>> keep) throws IOException {
+    public static Report run(WorldScan scan, Map<String, Set<Long>> keep, Target target) throws IOException {
         List<DimSummary> dims = new ArrayList<>();
         List<Warning> warnings = new ArrayList<>();
         Map<String, Map<Long, int[]>> portals = new HashMap<>(); // dim -> chunk -> {portalBlocks}
@@ -32,7 +36,8 @@ public final class DryRun {
             Set<Long> k = keep.get(d.key());
             boolean enabled = k != null;
             Map<Long, Integer> global = scan.globalReasons(d);
-            int existing = 0, full = 0, proto = 0, kept = 0, regen = 0, regenFull = 0, regenProto = 0, blendTag = 0;
+            int existing = 0, full = 0, proto = 0, kept = 0, regen = 0, regenFull = 0, regenProto = 0, blendTag = 0, belowMarker = 0;
+            int[] sampleOld = null, sampleMarked = null;
             int minDv = Integer.MAX_VALUE, maxDv = 0;
             Map<Long, RegionData> rmap = new HashMap<>();
             Map<Long, int[]> pmap = new HashMap<>();
@@ -51,7 +56,8 @@ public final class DryRun {
                     boolean keepIt = !enabled || k.contains(key);
                     if (keepIt) {
                         kept++;
-                        if (rd.blending[i] != 0) blendTag++;
+                        if (rd.blending[i] != 0) { blendTag++; if (sampleMarked == null) sampleMarked = new int[] { rd.cx(i), rd.cz(i) }; }
+                        if (target.marker() != null && rd.dataVersion[i] < target.marker()) { belowMarker++; if (sampleOld == null) sampleOld = new int[] { rd.cx(i), rd.cz(i) }; }
                         if (rd.state[i] == RegionData.FULL) { minDv = Math.min(minDv, rd.dataVersion[i]); maxDv = Math.max(maxDv, rd.dataVersion[i]); }
                         continue;
                     }
@@ -95,15 +101,34 @@ public final class DryRun {
             }
             portals.put(d.key(), pmap);
             regionOf.put(d.key(), rmap);
+            if (enabled && kept > 0 && d.id.equals("minecraft:overworld")) blendingNotes(d, target, kept, belowMarker, blendTag, sampleOld, sampleMarked, k, warnings);
             dims.add(new DimSummary(d.key(), d.label(), enabled, existing, full, proto, kept, regen, regenFull, regenProto, blendTag,
-                minDv == Integer.MAX_VALUE ? 0 : minDv, maxDv));
+                minDv == Integer.MAX_VALUE ? 0 : minDv, maxDv, target.marker() == null ? -1 : belowMarker));
         }
         portalLinks(keep, portals, warnings);
 
         warnings.sort(Comparator.comparingInt((Warning w) -> w.level().equals("danger") ? 0 : w.level().equals("warn") ? 1 : 2));
         int danger = 0, warn = 0, info = 0;
         for (Warning w : warnings) { if (w.level().equals("danger")) danger++; else if (w.level().equals("warn")) warn++; else info++; }
-        return new Report(dims, warnings, danger, warn, info);
+        return new Report(dims, warnings, danger, warn, info, target);
+    }
+
+    /** Whether the land regenerated next to the kept Overworld chunks will be blended, and what Sharp borders would take. */
+    private static void blendingNotes(Dimension d, Target t, int kept, int belowMarker, int marked, int[] sampleOld, int[] sampleMarked,
+                                      Set<Long> keep, List<Warning> warnings) {
+        long any = keep.iterator().next();
+        int[] at = sampleOld != null ? sampleOld : sampleMarked != null ? sampleMarked : new int[] { WorldScan.keyX(any), WorldScan.keyZ(any) };
+        String v = "Minecraft " + t.version();
+        if (t.marker() == null)
+            warnings.add(new Warning("info", d.key(), at[0], at[1], "Can't tell whether " + v + " marks the kept chunks as old (its game files"
+                + " aren't installed). If it does, the regenerated land next to them is blended."));
+        else if (belowMarker > 0)
+            warnings.add(new Warning("info", d.key(), at[0], at[1], (belowMarker == kept ? "All " : "") + belowMarker + " kept chunks were last saved by"
+                + " an older version than " + t.version() + ". " + v + " marks them as old when it loads them, so the regenerated land next to them"
+                + " is blended: the old biome continues about 5 chunks in and the ground is smoothed. For sharp borders choose Sharp on the Apply tab."));
+        else if (marked > 0)
+            warnings.add(new Warning("info", d.key(), at[0], at[1], marked + " kept chunks carry old-chunk marks from an earlier upgrade, so the"
+                + " regenerated land next to them is blended. " + v + " won't mark them again, so Sharp on the Apply tab can simply remove the marks."));
     }
 
     /** Kept portal whose partner (where the game would link it) is regenerated. */

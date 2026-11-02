@@ -4,6 +4,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.github.estebansa19.chunkkeeper.Main;
 import io.github.estebansa19.chunkkeeper.Project;
+import io.github.estebansa19.chunkkeeper.game.GameVersions;
+import io.github.estebansa19.chunkkeeper.game.ServerJars;
 import io.github.estebansa19.chunkkeeper.plan.Applier;
 import io.github.estebansa19.chunkkeeper.plan.DryRun;
 import io.github.estebansa19.chunkkeeper.plan.Selection;
@@ -33,13 +35,16 @@ public final class WebServer {
     private HttpServer server;
     private int port;
 
+    private final ServerJars servers;
     private volatile Session session;
     private volatile Applier.Progress applyProgress;
+    private volatile ServerJars.Download download;
 
     private record Session(World world, WorldScan scan, Project project) {}
 
     public WebServer(Path dataRoot) {
         this.dataRoot = dataRoot;
+        this.servers = new ServerJars(dataRoot);
         byte[] b = new byte[18];
         new SecureRandom().nextBytes(b);
         this.token = Base64.getUrlEncoder().withoutPadding().encodeToString(b);
@@ -218,7 +223,66 @@ public final class WebServer {
             case "dryrun": {
                 requirePost(method);
                 Session s = need();
-                sendJson(ex, 200, DryRun.run(s.scan(), keepSets(s, Json.object(body(ex)))));
+                Map<String, Object> req = Json.object(body(ex));
+                sendJson(ex, 200, DryRun.run(s.scan(), keepSets(s, req), target(s, req)));
+                return;
+            }
+            case "versions": {
+                Session s = need();
+                List<Map<String, Object>> list = new ArrayList<>();
+                for (GameVersions.Installed i : GameVersions.installed())
+                    if (i.dataVersion() >= s.world().dataVersion) list.add(Map.of("id", i.id(), "dataVersion", i.dataVersion()));
+                if (list.isEmpty()) list.add(Map.of("id", s.world().versionName, "dataVersion", s.world().dataVersion));
+                String inst = GameVersions.instanceVersion(s.world().dir), def = String.valueOf(list.get(0).get("id"));
+                for (Map<String, Object> v : list) if (v.get("id").equals(inst)) def = inst;
+                sendJson(ex, 200, Map.of("versions", list, "default", def));
+                return;
+            }
+            case "server": {
+                String v = String.valueOf(q.get("version"));
+                Map<String, Object> m = new LinkedHashMap<>(servers.status(v));
+                ServerJars.Download d = download;
+                if (d != null && d.version.equals(v)) {
+                    Map<String, Object> dm = new LinkedHashMap<>();
+                    dm.put("phase", d.phase); dm.put("done", d.done.get()); dm.put("total", d.total.get());
+                    dm.put("finished", d.finished); dm.put("error", d.error);
+                    m.put("download", dm);
+                }
+                sendJson(ex, 200, m);
+                return;
+            }
+            case "server/download": {
+                requirePost(method);
+                String v = String.valueOf(Json.object(body(ex)).get("version"));
+                servers.dir(v); // validates the name
+                ServerJars.Download running = download;
+                if (running != null && !running.finished) throw new IllegalStateException("A download is already running");
+                ServerJars.Download d = new ServerJars.Download(v);
+                download = d;
+                Thread t = new Thread(() -> {
+                    try { servers.download(d); } catch (Exception e) { d.error = e.getMessage() == null ? e.toString() : e.getMessage(); } finally { d.finished = true; }
+                }, "server-download");
+                t.setDaemon(true);
+                t.start();
+                sendJson(ex, 200, Map.of("started", true));
+                return;
+            }
+            case "server/import": {
+                requirePost(method);
+                Map<String, Object> req = Json.object(body(ex));
+                try {
+                    servers.importJar(String.valueOf(req.get("version")), Paths.get(String.valueOf(req.get("path")).trim().replaceAll("^\"|\"$", "")));
+                } catch (IOException e) {
+                    throw new IllegalArgumentException(e.getMessage());
+                }
+                sendJson(ex, 200, servers.status(String.valueOf(req.get("version"))));
+                return;
+            }
+            case "server/eula": {
+                requirePost(method);
+                Map<String, Object> req = Json.object(body(ex));
+                servers.setEula(String.valueOf(req.get("version")), Boolean.TRUE.equals(req.get("accept")));
+                sendJson(ex, 200, servers.status(String.valueOf(req.get("version"))));
                 return;
             }
             case "defaults": {
@@ -246,9 +310,15 @@ public final class WebServer {
                 Applier.Progress running = applyProgress;
                 if (running != null && running.result == null && running.error == null) throw new IllegalStateException("An apply is already running");
                 Map<String, Object> req = Json.object(body(ex));
-                Applier.Options o = new Applier.Options(Paths.get(String.valueOf(req.get("output")).trim()), keepSets(s, req),
-                    Boolean.TRUE.equals(req.get("stripBlending")), req.get("newName") == null ? null : String.valueOf(req.get("newName")));
-                if (o.keep().isEmpty()) throw new IllegalArgumentException("No dimension is set to be regenerated");
+                Map<String, Set<Long>> keep = keepSets(s, req);
+                if (keep.isEmpty()) throw new IllegalArgumentException("No dimension is set to be regenerated");
+                boolean sharp = "sharp".equals(req.get("borders"));
+                ServerJars.Ready upgrade = null;
+                if (sharp && needsUpgrade(s, keep, target(s, req))) {
+                    try { upgrade = servers.ready(target(s, req).version()); } catch (IOException e) { throw new IllegalStateException(e.getMessage()); }
+                }
+                Applier.Options o = new Applier.Options(Paths.get(String.valueOf(req.get("output")).trim()), keep, sharp,
+                    req.get("newName") == null ? null : String.valueOf(req.get("newName")), upgrade);
                 Applier.Progress p = new Applier.Progress();
                 applyProgress = p;
                 Thread t = new Thread(() -> {
@@ -269,6 +339,21 @@ public final class WebServer {
             default:
                 send(ex, 404, "text/plain", "unknown api " + route);
         }
+    }
+
+    /** The version the copy will be played in (request field "target", else the world's own version) and its old-chunk marker. */
+    private static DryRun.Target target(Session s, Map<String, Object> req) {
+        String v = req.get("target") instanceof String t && !t.isBlank() ? t : s.world().versionName;
+        GameVersions.Marker m = GameVersions.blendingMarker(v);
+        return new DryRun.Target(v, m == null ? null : m.dataVersion());
+    }
+
+    /** Sharp borders need the server step when kept Overworld chunks are older than the marker (or the marker is unknown). */
+    private static boolean needsUpgrade(Session s, Map<String, Set<Long>> keep, DryRun.Target t) throws IOException {
+        if (!keep.containsKey("overworld")) return false;
+        for (DryRun.DimSummary d : DryRun.run(s.scan(), keep, t).dims())
+            if (d.key().equals("overworld")) return d.keptBelowMarker() != 0 && d.keep() > 0;
+        return false;
     }
 
     /** Dimension key -> kept chunks, for every dimension the request marks as regenerated (from the saved selections). */
