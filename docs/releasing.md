@@ -54,7 +54,7 @@ Steps:
 
    ```yaml
       - id: unsigned
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: upkeep-windows-unsigned
           path: build/Upkeep-*-windows-x64.zip
