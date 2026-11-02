@@ -48,7 +48,7 @@ jobs:
           # Drop the "protected your PC" line once releases are signed (docs/releasing.md)
           $notes = @"
           **Windows:** download ``Upkeep-$v-windows-x64.zip``, extract it, and double-click ``Upkeep.exe``. It brings its own Java.
-          If Windows says "Windows protected your PC", click **More info**, then **Run anyway** (the app isn't code-signed yet).
+          If Windows says "Windows protected your PC", click **More info**, then **Run anyway**: the app isn't code-signed yet (free signing by the SignPath Foundation is being set up, see the [Code signing policy](https://github.com/estebansa19/upkeep#code-signing-policy)).
 
           **macOS / Linux:** download ``upkeep-$v.jar`` and run ``java -jar upkeep-$v.jar`` (Java 21 or newer).
 

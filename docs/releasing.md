@@ -39,7 +39,8 @@ Their conditions (see [signpath.org/terms](https://signpath.org/terms)) and wher
 | already released in the form to be signed | first release ships the unsigned app |
 | built by CI from this repository | release workflow |
 | product name and version in the binary | set by `jpackage` |
-| "Code signing policy" section on the home page | in the README |
+| "Code signing policy" section on the home page, linked from the download and release pages | in the README, linked from "Get it" and the release notes |
+| uninstall instructions next to the install instructions | README, "Get it" |
 | MFA for everyone on the team | turn on two-factor authentication on GitHub |
 | each signing request approved by hand | the approver in the README does it in SignPath |
 

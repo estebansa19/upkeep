@@ -16,9 +16,14 @@ Your original world is never touched.
 [latest release](https://github.com/estebansa19/upkeep/releases/latest), extract it, and double-click `Upkeep.exe`.
 Nothing else to install.
 
-If Windows says "Windows protected your PC", click **More info** → **Run anyway** (the app isn't code-signed yet).
+If Windows says "Windows protected your PC", click **More info** → **Run anyway** (the app isn't code-signed yet, see
+[Code signing policy](#code-signing-policy)).
 
 **macOS / Linux:** download `upkeep-<version>.jar` and run `java -jar upkeep-<version>.jar` (Java 21+).
+
+**Uninstall:** delete the `Upkeep` folder you extracted (or the jar) and the `Upkeep` folder in your user folder
+(`C:\Users\<you>\Upkeep` on Windows, `~/Upkeep` elsewhere), which holds your selections and the map cache. Upkeep
+installs nothing else.
 
 ## Use it
 
