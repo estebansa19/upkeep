@@ -58,7 +58,7 @@ The Nether and End are never blended.
 
 ## Sharp borders
 
-The tag is added **when a version loads the chunk**, and only to chunks saved before that version's marker. Chunk Keeper
+The tag is added **when a version loads the chunk**, and only to chunks saved before that version's marker. Upkeep
 reads the marker from the installed game (`DataFixers.BLENDING_VERSION` in the client jar), so the dry run can tell which
 case you are in for the version you'll play the copy in:
 
@@ -68,7 +68,7 @@ case you are in for the version you'll play the copy in:
   back on the first load. Tested with 26.1.2 → 26.3: all 49 kept chunks were marked again and the dappled forest started
   about 9 chunks from the kept area. So **Sharp** first runs that version's official server once on the new copy with
   `--forceUpgrade --recreateRegionFiles`. It re-saves every existing chunk in the new format (adding the marks) and
-  generates nothing. Chunk Keeper then removes the marks and checks that every kept chunk was re-saved.
+  generates nothing. Upkeep then removes the marks and checks that every kept chunk was re-saved.
 
 `--recreateRegionFiles` matters. Without it, the 26.3 upgrader doesn't wait for its last chunk write, and in a 49-chunk
 copy the last chunk stayed at the old version 3 times out of 3. The in-game **Optimize World** button has no such option.

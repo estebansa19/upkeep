@@ -1,0 +1,54 @@
+name: release
+
+# Push a tag like v0.1.0 (matching the VERSION file) to build, test and package Upkeep and create a DRAFT release with the
+# Windows app, the jar and their checksums. Check the draft on GitHub, then publish it. See docs/releasing.md.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Check that the tag matches VERSION
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          $v = (Get-Content VERSION -Raw).Trim()
+          if ("v$v" -ne $env:TAG) { throw "Tag $env:TAG does not match VERSION ($v)" }
+      - name: Build, test and package
+        shell: pwsh
+        run: ./build.ps1 -Package
+      # Code signing goes here once SignPath Foundation has accepted the project: upload the zip with
+      # actions/upload-artifact, sign it with signpath/github-action-submit-signing-request, and attach the signed zip
+      # below instead of the unsigned one (docs/releasing.md has the details).
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem build/Upkeep-*-windows-x64.zip, build/upkeep-*.jar |
+            ForEach-Object { '{0}  {1}' -f (Get-FileHash $_ -Algorithm SHA256).Hash.ToLower(), $_.Name } |
+            Set-Content build/SHA256SUMS.txt -Encoding ascii
+      - name: Draft the GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          $files = Get-ChildItem build/Upkeep-*-windows-x64.zip, build/upkeep-*.jar, build/SHA256SUMS.txt | ForEach-Object FullName
+          $notes = @"
+          **Windows:** download ``Upkeep-*-windows-x64.zip``, extract it, and double-click ``Upkeep.exe``. It brings its own Java.
+
+          **macOS / Linux:** download ``upkeep-*.jar`` and run ``java -jar upkeep-*.jar`` (Java 21 or newer).
+
+          ``SHA256SUMS.txt`` lists the checksums of both files.
+          "@
+          gh release create $env:TAG @files --draft --title "Upkeep $env:TAG" --notes $notes --generate-notes

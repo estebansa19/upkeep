@@ -1,12 +1,13 @@
-# Chunk Keeper
+# Upkeep
 
 **Keep what you built. Regenerate the rest.**
 
-Chunk Keeper is a small desktop tool for Minecraft: Java Edition worlds. It shows a map of every chunk your world has
-generated, helps you mark the chunks you want to **keep** (your builds, farms, storage, portals…), and writes a **copy**
-of the world that contains only those chunks. Everything else is missing from the copy, so Minecraft generates it again,
-with its *current* world generation, the next time a player gets close. That's how you get new biomes, structures and
-terrain features into an old world without losing your work.
+Upkeep brings an old Minecraft: Java Edition world up to date with a new version's terrain without losing your work. It
+shows a map of every chunk your world has generated, helps you mark the chunks you want to **keep** (your builds, farms,
+storage, portals…), and writes a **copy** of the world that contains only those chunks. Everything else is missing from
+the copy, so Minecraft generates it again, with its *current* world generation, the next time a player gets close. That's
+how you get new biomes, structures and terrain features into an old world. The borders between kept and new land can be
+blended (Minecraft's default) or sharp.
 
 Your original world is never modified.
 
@@ -30,28 +31,26 @@ Your original world is never modified.
 - **Apply to a copy.** Kept chunks are copied byte for byte into fresh, compact region files, and their entities and POI
   data come along. Then the copy is re-read and verified.
 - **Blended or sharp borders.** By default Minecraft blends new land into kept chunks it considers old. Sharp borders
-  remove those marks; after an upgrade Chunk Keeper first re-saves the kept chunks with the new version's official server
+  remove those marks; after an upgrade Upkeep first re-saves the kept chunks with the new version's official server
   so the marks don't come back (see [how it works](docs/how-it-works.md)).
 - Selections are saved per world and dimension in the **MCA Selector** selection format, so you can move them between
   both tools.
 
 ## Requirements
 
-- Java 21 or newer (any JDK or JRE that includes `jdk.httpserver`, which standard builds do).
+- **Windows:** nothing. The Windows app brings its own Java.
+- **macOS / Linux:** Java 21 or newer (any JDK or JRE that includes `jdk.httpserver`, which standard builds do).
 - A Java Edition world from 1.18 or newer. Older (1.13–1.17) chunks are read for suggestions, with limited map rendering.
 
 ## Use it
 
-1. Download `chunk-keeper-<version>.jar` from the Releases page (or build it, see below).
+1. Download from the Releases page:
+   - Windows: `Upkeep-<version>-windows-x64.zip`. Extract it anywhere and double-click `Upkeep.exe`.
+   - macOS / Linux: `upkeep-<version>.jar`, then run `java -jar upkeep-<version>.jar`.
 2. Close Minecraft (reading works while it runs, but applying needs the world closed).
-3. Run it:
-
-   ```bash
-   java -jar chunk-keeper-0.1.0.jar
-   ```
-
-   Your browser opens `http://127.0.0.1:8765/`. The page is served by the program on your own computer; nothing goes
-   online.
+3. Upkeep opens a small window that says it's running, and your browser opens `http://127.0.0.1:8765/`. The page is
+   served by Upkeep on your own computer; nothing goes online. Closing the small window stops Upkeep. Starting it again
+   while it runs just opens the page again.
 4. **Pick a world.** Worlds from the vanilla launcher, Prism Launcher, PolyMC, CurseForge and Modrinth are listed, or paste
    any world folder path.
 5. **Select.** Check the orange suggestions, click **Keep suggested chunks**, then paint or remove chunks.
@@ -61,9 +60,10 @@ Your original world is never modified.
 7. **Apply.** Pick the output folder (by default, next to the original world) and create the copy. Open the copy in
    Minecraft and explore.
 
-Options: `--port N`, `--no-browser`, `--data-dir DIR`, or pass a world folder to open it right away.
+Options: `--port N`, `--no-browser`, `--no-window` (console only, stop with Ctrl+C), `--data-dir DIR`, or pass a world
+folder to open it right away.
 
-Chunk Keeper keeps its own files (selections and map cache) in `~/ChunkKeeper`, never inside your world.
+Upkeep keeps its own files (selections and map cache) in `~/Upkeep`, never inside your world.
 
 ### Keyboard
 
@@ -88,7 +88,7 @@ The short version, measured on real worlds (details and numbers in [docs/how-it-
   5 chunks into the regenerated land, and terrain is smoothed for about 100 blocks. A version that changed world generation
   marks every older chunk when it loads it (26.1.2 → 26.3 did), so expect this ring after such an upgrade, unless you
   choose sharp borders.
-- Half-generated chunks at the edge of explored land keep their old biomes unless you regenerate them too. Chunk Keeper
+- Half-generated chunks at the edge of explored land keep their old biomes unless you regenerate them too. Upkeep
   removes them unless you keep them.
 - New chunks can place ore, stone blobs and trees up to about 8 blocks into neighbouring kept chunks. Natural blocks are
   the only ones affected, but keep the default 1-chunk safety margin around builds.
@@ -106,12 +106,16 @@ Only a JDK is needed (no Gradle or Maven):
 ```
 
 The jar ends up in `build/`. Tests run as part of the build (`-SkipTests` / `--skip-tests` to skip). During UI work, run
-with `-Dchunkkeeper.web=src/main/resources/web` to serve the page straight from the source folder.
+with `-Dupkeep.web=src/main/resources/web` to serve the page straight from the source folder.
+
+`.\build.ps1 -Package` also builds the Windows app (`build\dist\Upkeep\Upkeep.exe`) with `jpackage` and zips it. For a
+small app it needs a JDK that can link a runtime, such as Eclipse Temurin 25; with other JDKs it copies the whole JDK
+(fine for local testing). Releases are built by GitHub Actions, see [docs/releasing.md](docs/releasing.md).
 
 Project layout:
 
 ```
-src/main/java/io/github/estebansa19/chunkkeeper/
+src/main/java/io/github/estebansa19/upkeep/
   nbt/      NBT reader/writer
   region/   Anvil region files (read, write, LZ4)
   chunk/    chunk parser (1.13+ layouts, 26.x palette variants)
@@ -120,16 +124,45 @@ src/main/java/io/github/estebansa19/chunkkeeper/
   scan/     region scanner, suggestions, chunk inspector
   plan/     selection files, dry run, apply + verify
   web/      local HTTP server and JSON
+  ui/       the small "Upkeep is running" window and the app icon
 src/main/resources/web/   the page (HTML, CSS, JS – no frameworks)
 src/test/java/            dependency-free tests
 ```
 
 ## Safety notes
 
-- Chunk Keeper only reads the source world and refuses to apply while the game holds the world's `session.lock`.
-- The output folder must be new or empty, and outside the source world.
+- Upkeep only reads the source world (even the "is Minecraft running?" check opens `session.lock` read-only) and refuses
+  to apply while the game holds the world.
+- The output folder must be new or empty, and outside the source world. If writing fails halfway, Upkeep says where the
+  unfinished copy is.
 - After writing, every kept chunk is compared with the source, and every removed chunk is checked to be gone.
+- The page only answers your own computer (`127.0.0.1`), checks the `Host` header, and every request needs a random key
+  that changes each time Upkeep starts, so other websites can't use it.
 - Keep backups of worlds you care about anyway.
+
+## Privacy
+
+Upkeep has no telemetry and sends nothing anywhere. The only time it goes online is when you click **Download from
+Mojang** for Sharp borders: it then downloads the official server from Mojang (`*.mojang.com`, checked against Mojang's
+SHA-1). Selections and the map cache stay in `~/Upkeep` on your computer.
+
+## Code signing policy
+
+Windows releases are built from this repository by GitHub Actions ([release workflow](.github/workflows/release.yml)),
+with nothing added by hand. Free code signing by [SignPath.io](https://signpath.io), with a certificate by the
+[SignPath Foundation](https://signpath.org), is being set up; until then the Windows app is unsigned and Windows may warn
+before the first start. Each release lists SHA-256 checksums.
+
+- Committers and reviewers: [estebansa19](https://github.com/estebansa19)
+- Approvers: [estebansa19](https://github.com/estebansa19)
+
+This program will not transfer any information to other networked systems unless specifically requested by the user or
+the person installing or operating it (see [Privacy](#privacy)).
+
+## License
+
+[MIT](LICENSE). Upkeep is not an official Minecraft product and is not approved by or associated with Mojang or
+Microsoft.
 
 ## Limitations
 
@@ -140,4 +173,6 @@ src/test/java/            dependency-free tests
 - It doesn't pregenerate the regenerated area. Minecraft generates it when you visit; a pregenerator mod or a server
   can do it ahead of time.
 - Map colors for modded blocks fall back to a generic color.
+- Chunks last saved before 1.13 (and damaged chunks) can't be read: the dry run lists them, so you can check them yourself.
 - Region files with LZ4 compression (type 4) are supported but have only been tested with synthetic data.
+- Very large worlds (tens of thousands of region files) need a lot of memory for the map.

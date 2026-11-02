@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="ck-token" content="{{TOKEN}}">
-  <title>Chunk Keeper</title>
+  <meta name="upkeep-token" content="{{TOKEN}}">
+  <meta name="referrer" content="no-referrer">
+  <title>Upkeep</title>
   <link rel="icon" href="favicon.svg">
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><img src="favicon.svg" alt=""><span>Chunk Keeper</span></div>
+  <div class="brand"><img src="favicon.svg" alt=""><span>Upkeep</span></div>
   <div id="worldTitle" class="world-title"></div>
   <div class="spacer"></div>
   <div id="lockBadge" class="badge danger hidden" title="Minecraft has this world open">Minecraft is running</div>
@@ -23,10 +24,10 @@
 <main id="screenStart" class="screen start">
   <section class="hero">
     <h1>Keep what you built.<br>Regenerate the rest.</h1>
-    <p class="lead">Pick a world, paint the chunks you want to keep, and Chunk Keeper writes a <b>copy</b> of the world
+    <p class="lead">Pick a world, paint the chunks you want to keep, and Upkeep writes a <b>copy</b> of the world
       where everything else generates fresh with your current Minecraft version. Your original world is never changed.</p>
     <ol class="steps">
-      <li><span>1</span><div><b>Pick a world</b><br>Chunk Keeper draws a map of every chunk that exists, per dimension.</div></li>
+      <li><span>1</span><div><b>Pick a world</b><br>Upkeep draws a map of every chunk that exists, per dimension.</div></li>
       <li><span>2</span><div><b>Paint what to keep</b><br>Suggestions point out your builds, storage, pets, villagers and portals.</div></li>
       <li><span>3</span><div><b>Review and apply</b><br>A dry run lists anything at risk before the copy is written.</div></li>
     </ol>
@@ -188,10 +189,10 @@
 <div id="toast" class="toast hidden"></div>
 
 <dialog id="helpDialog">
-  <div class="dialog-head"><h2>How Chunk Keeper works</h2><button class="icon" onclick="this.closest('dialog').close()">✕</button></div>
+  <div class="dialog-head"><h2>How Upkeep works</h2><button class="icon" onclick="this.closest('dialog').close()">✕</button></div>
   <div class="dialog-body">
     <h3>The idea</h3>
-    <p>Minecraft only generates a chunk once. Chunk Keeper writes a copy of your world that contains only the chunks you keep;
+    <p>Minecraft only generates a chunk once. Upkeep writes a copy of your world that contains only the chunks you keep;
       every other chunk is missing, so Minecraft generates it again with its current world generation (new biomes, new structures)
       the next time a player gets close. Same seed, same terrain shape; only what the new version changed will differ.</p>
     <h3>Colors</h3>
@@ -212,10 +213,10 @@
       biome continues roughly 5 chunks into the regenerated area and the terrain there is smoothed. A version that changed world
       generation marks every older chunk this way when it loads it, so expect that ring after such an upgrade. Choose <b>Sharp</b>
       borders on the Apply tab to get new land right up to the kept chunks. When they are older than the version you'll play in,
-      Chunk Keeper first re-saves them with that version's official server (once, on the copy), so the marks don't come back.
+      Upkeep first re-saves them with that version's official server (once, on the copy), so the marks don't come back.
       Water at the edge of kept chunks can flow into the new terrain, and the review lists those spots.</p>
     <h3>Safety</h3>
-    <p>Chunk Keeper only reads your world. Selections and the map cache are stored in your ChunkKeeper folder, not in the world.
+    <p>Upkeep only reads your world. Selections and the map cache are stored in your Upkeep folder, not in the world.
       Close Minecraft before applying, and keep a backup of worlds you care about.</p>
   </div>
 </dialog>

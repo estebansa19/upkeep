@@ -4,8 +4,11 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
+  jar:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,5 +19,20 @@ jobs:
       - run: bash build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: chunk-keeper
-          path: build/chunk-keeper-*.jar
+          name: upkeep-jar
+          path: build/upkeep-*.jar
+
+  windows-app:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - run: ./build.ps1 -Package
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upkeep-windows
+          path: build/Upkeep-*-windows-x64.zip

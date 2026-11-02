@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const TOKEN = document.querySelector('meta[name="ck-token"]').content;
+  const TOKEN = document.querySelector('meta[name="upkeep-token"]').content;
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => Array.from(document.querySelectorAll(s));
 
@@ -29,11 +29,11 @@
     dimOn: new Map(), dry: null, dryStale: true,
     poll: null, infoQueue: [], infoActive: 0,
   };
-  window.chunkKeeper = S; // handy for debugging from the browser console
+  window.upkeep = S; // handy for debugging from the browser console
 
   // ------------------------------------------------------------------ helpers
   async function api(path, opts = {}) {
-    const r = await fetch('/api/' + path, { ...opts, headers: { 'X-CK-Token': TOKEN, ...(opts.headers || {}) } });
+    const r = await fetch('/api/' + path, { ...opts, headers: { 'X-Upkeep-Token': TOKEN, ...(opts.headers || {}) } });
     const ct = r.headers.get('content-type') || '';
     const body = ct.includes('json') ? await r.json() : await r.text();
     if (!r.ok) throw new Error((body && body.error) || body || r.statusText);
@@ -203,7 +203,7 @@
       const job = S.infoQueue.shift();
       if (job.ds.info.has(rkey(job.rx, job.rz)) || !S.dims.has(job.ds.key) || S.dims.get(job.ds.key) !== job.ds) continue;
       S.infoActive++;
-      api('region?dim=' + job.ds.key + '&rx=' + job.rx + '&rz=' + job.rz)
+      api('region?dim=' + encodeURIComponent(job.ds.key) + '&rx=' + job.rx + '&rz=' + job.rz)
         .then((r) => {
           r.state = Uint8Array.from(r.state);
           job.ds.info.set(rkey(job.rx, job.rz), r);
@@ -217,7 +217,7 @@
 
   async function loadSelection(ds) {
     try {
-      const text = await api('selection?dim=' + ds.key);
+      const text = await api('selection?dim=' + encodeURIComponent(ds.key));
       ds.keep = new Map();
       parseSelection(ds, text);
       for (const k of ds.regionSet) markOverlay(ds, k);
@@ -272,7 +272,7 @@
     clearTimeout(ds.saveTimer);
     ds.saveTimer = null;
     const p = (ds.savePromise || Promise.resolve()).catch(() => {})
-      .then(() => api('selection?dim=' + ds.key, { method: 'PUT', body: selectionText(ds) }));
+      .then(() => api('selection?dim=' + encodeURIComponent(ds.key), { method: 'PUT', body: selectionText(ds) }));
     ds.savePromise = p;
     try {
       await p;
@@ -306,7 +306,7 @@
           if (!ds) continue;
           if (!p.finished && !busy) busy = ds.label + ' ' + p.done + '/' + p.total + ' regions';
           if (p.finished && !ds.global) {
-            const g = await api('global?dim=' + key);
+            const g = await api('global?dim=' + encodeURIComponent(key));
             if (!g.pending) {
               ds.global = new Map(g.reasons.map((r) => [r[0] + ',' + r[1], r[2]]));
               ds.notes = g.notes || [];
@@ -318,7 +318,7 @@
         $('#scanStatus').textContent = busy ? 'Reading ' + busy : '';
         updateApplyGate();
       } catch (e) {
-        $('#scanStatus').textContent = 'Lost connection to Chunk Keeper';
+        $('#scanStatus').textContent = 'Lost connection to Upkeep';
       }
     };
     tick();
@@ -560,7 +560,7 @@
         ds.tiles.set(rk + '/' + l, rec);
         img.onload = () => { rec.ok = true; redraw(); };
         img.onerror = () => { rec.failed = true; };
-        img.src = '/api/tile?dim=' + ds.key + '&rx=' + rx + '&rz=' + rz + '&lod=' + l + '&t=' + TOKEN;
+        img.src = '/api/tile?dim=' + encodeURIComponent(ds.key) + '&rx=' + rx + '&rz=' + rz + '&lod=' + l + '&t=' + TOKEN;
       }
     }
     return null;
@@ -769,7 +769,7 @@
     $('#details').innerHTML = '<span class="muted">Loading…</span>';
     selectTab('select');
     try {
-      const d = await api('chunk?dim=' + S.dimKey + '&cx=' + cx + '&cz=' + cz);
+      const d = await api('chunk?dim=' + encodeURIComponent(S.dimKey) + '&cx=' + cx + '&cz=' + cz);
       if (!d.exists) { $('#details').innerHTML = '<p class="muted">Not generated yet.</p>'; return; }
       const ds = cur();
       const keep = ds.keep.get(rkey(cx >> 5, cz >> 5));
@@ -893,8 +893,8 @@
       try {
         await flushSaves();
         const before = new Map([...ds.keep].map(([k, a]) => [k, a.slice()]));
-        await api('selection?dim=' + ds.key, { method: 'PUT', body: await f.text() });
-        const text = await api('selection?dim=' + ds.key);
+        await api('selection?dim=' + encodeURIComponent(ds.key), { method: 'PUT', body: await f.text() });
+        const text = await api('selection?dim=' + encodeURIComponent(ds.key));
         const op = beginOp();
         const fresh = { keep: new Map() };
         parseSelection(fresh, text);
@@ -940,7 +940,15 @@
       if (k === 't') toggleOverlay('heat');
     });
     window.addEventListener('keyup', (e) => { if (e.key === ' ') { S.space = false; $('#map').classList.toggle('pan', S.tool === 'pan'); } });
-    window.addEventListener('beforeunload', () => { for (const ds of S.dims.values()) if (ds.saveTimer) saveNow(ds); });
+    // a beacon still gets through while the tab closes, where a normal request may be cancelled
+    window.addEventListener('pagehide', () => {
+      for (const ds of S.dims.values()) {
+        if (!ds.saveTimer) continue;
+        clearTimeout(ds.saveTimer);
+        ds.saveTimer = null;
+        navigator.sendBeacon('/api/selection?dim=' + encodeURIComponent(ds.key) + '&t=' + TOKEN, new Blob([selectionText(ds)], { type: 'text/plain' }));
+      }
+    });
   }
 
   // ------------------------------------------------------------------ review
@@ -1081,7 +1089,7 @@
     const d = overworldDry(), v = esc(S.dry.target.version);
     if (!d) { box.innerHTML = '<p class="small muted">Only the Overworld blends, and it isn\'t being regenerated here. Nothing to do.</p>'; return; }
     if (!needsServer()) {
-      box.innerHTML = '<p class="small">Minecraft ' + v + ' won\'t mark these kept chunks as old again, so Chunk Keeper just removes the marks'
+      box.innerHTML = '<p class="small">Minecraft ' + v + ' won\'t mark these kept chunks as old again, so Upkeep just removes the marks'
         + (d.keptWithBlendingTag ? ' (' + fmt(d.keptWithBlendingTag) + ' chunks have one)' : '') + '. No extra step needed.</p>';
       return;
     }
@@ -1091,9 +1099,9 @@
     }
     const s = S.server, dl = s.download && !s.download.finished ? s.download : null;
     let h = '<p class="small">' + (d.keptBelowMarker > 0 ? fmt(d.keptBelowMarker) + ' kept chunks were last saved by an older version, so Minecraft ' + v
-      + ' would mark them as old again.' : 'Chunk Keeper can\'t tell whether Minecraft ' + v + ' marks these chunks.')
-      + ' To prevent that, Chunk Keeper runs the official Minecraft ' + v + ' server once on the new copy. It re-saves the kept chunks'
-      + ' without generating any land, then Chunk Keeper removes the marks.</p><div class="setup">';
+      + ' would mark them as old again.' : 'Upkeep can\'t tell whether Minecraft ' + v + ' marks these chunks.')
+      + ' To prevent that, Upkeep runs the official Minecraft ' + v + ' server once on the new copy. It re-saves the kept chunks'
+      + ' without generating any land, then Upkeep removes the marks.</p><div class="setup">';
     if (s.present) h += '<div><span class="t-keep">✓</span> Minecraft ' + v + ' server ready</div>';
     else if (dl) h += '<div>Downloading the server… ' + (dl.total ? fmt(Math.round(dl.done / 1048576)) + ' / ' + fmt(Math.round(dl.total / 1048576)) + ' MB' : '') + '</div>';
     else {
@@ -1154,9 +1162,16 @@
     try {
       await flushSaves();
       await post('apply', { dims: dimsRequest(), output: $('#outPath').value, newName: $('#outName').value, target: S.target, borders: bordersMode() });
-      for (;;) {
+      for (let misses = 0; ;) {
         await new Promise((res) => setTimeout(res, 400));
-        const p = await api('apply');
+        let p;
+        try {
+          p = await api('apply');
+          misses = 0;
+        } catch (e) { // the copy goes on without the page: only give up after ~20 s without an answer
+          if (++misses > 50) throw new Error('Lost connection to Upkeep while writing the copy (' + e.message + ')');
+          continue;
+        }
         const unit = p.phase.startsWith('re-saving') ? ' chunks' : ' region files';
         $('#applyPhase').textContent = p.phase + (p.total ? ' · ' + fmt(p.done) + ' / ' + fmt(p.total) + unit : '');
         $('#applyBar').style.width = (p.total ? Math.round(100 * p.done / p.total) : 5) + '%';
@@ -1186,8 +1201,11 @@
     if (r.upgradedWith) h += '<p class="small">Re-saved with the Minecraft ' + esc(r.upgradedWith) + ' server and old-chunk marks removed'
       + (marks ? ' (' + fmt(marks) + ' chunks)' : '') + ': new land will come right up to the kept chunks.</p>';
     else if (marks) h += '<p class="small">Old-chunk marks removed from ' + fmt(marks) + ' kept chunks.</p>';
+    const parent = (p) => p.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]*$/, '').toLowerCase();
+    const besideOriginal = S.session && parent(r.output) === parent(S.session.path);
     h += '<p class="small">New world: <code>' + esc(r.output) + '</code></p>'
-      + '<p class="small muted">Open it in Minecraft (it is next to your original world). Removed chunks are generated again as you explore.</p>'
+      + '<p class="small muted">' + (besideOriginal ? 'Open it in Minecraft: it is in the same saves folder as your original world.'
+        : 'Move this folder into a Minecraft saves folder to play it.') + ' Removed chunks are generated again as you explore.</p>'
       + '<div class="btn-row"><button id="btnReveal" class="secondary">Open folder</button></div>';
     el.innerHTML = h;
     $('#btnReveal').onclick = () => post('reveal', { path: r.output }).catch((e) => toast(e.message, true));
