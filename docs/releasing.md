@@ -14,7 +14,7 @@
    everything on Windows with Eclipse Temurin 25, packages the Windows app with `jpackage`, and creates a **draft**
    release with:
    - `Upkeep-<version>-windows-x64.zip`: the app folder (`Upkeep.exe`, `app\`, `runtime\`). The runtime is a small Java
-     made by `jlink` with only the modules Upkeep uses (`java.base`, `java.desktop`, `java.net.http`, `jdk.httpserver`).
+     made by `jlink` with only the modules Upkeep uses (`java.base`, `java.desktop`, `java.net.http`, `jdk.httpserver`, plus `jdk.crypto.ec` when built with JDK 21).
    - `upkeep-<version>.jar`: for macOS and Linux (Java 21+).
    - `SHA256SUMS.txt`.
 4. Open the draft on GitHub, check the notes and files, then publish it.

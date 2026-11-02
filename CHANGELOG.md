@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (not released yet)
+## 0.1.0 (2026-11-02)
 
 First version, named Upkeep (it was called Chunk Keeper while it was being built).
 
