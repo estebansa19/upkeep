@@ -113,8 +113,9 @@ kbd { font: 12px ui-monospace, Consolas, monospace; border: 1px solid var(--line
 /* minmax(0, 1fr): an auto column would grow to the longest unbreakable word (output paths) and scroll sideways */
 .tab { overflow: auto; padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; }
 .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
-.card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.card-head h3 { margin: 0; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; margin-bottom: 4px; }
+.card-head h3 { margin: 0; white-space: nowrap; }
+.card-head .pill { white-space: nowrap; }
 .card p { margin: 6px 0; }
 .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
 .summary .counts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

@@ -8,6 +8,8 @@ those chunks. Minecraft fills in everything else with brand-new terrain as you e
 
 Your original world is never touched.
 
+![Upkeep's map of a world, with the chunks that look like your work outlined in orange](docs/img/map-suggestions.png)
+
 ## Get it
 
 **Windows:** download `Upkeep-<version>-windows-x64.zip` from the
@@ -20,7 +22,10 @@ If Windows says "Windows protected your PC", click **More info** → **Run anywa
 
 ## Use it
 
-1. **Close Minecraft** and start Upkeep. Your browser opens with the Upkeep page.
+1. **Close Minecraft** and start Upkeep. This little window pops up and your browser opens the Upkeep page.
+
+   <img src="docs/img/running-window.png" width="351" alt="The small Upkeep is running window">
+
 2. **Pick your world** from the list.
 3. **Click Keep suggested chunks.** Your builds, farms, chests and portals are found for you. Paint more with the brush
    if you want.
@@ -28,6 +33,10 @@ If Windows says "Windows protected your PC", click **More info** → **Run anywa
 5. **Apply → Create regenerated copy.** A new world called "<world> (regenerated)" shows up next to the old one.
 
 Open Minecraft, load the new world, and go exploring.
+
+| Dry run | Done |
+|---|---|
+| ![The dry run lists what will happen and anything to check](docs/img/dry-run.png) | ![The Apply tab after the copy was written and verified](docs/img/apply-done.png) |
 
 ## Good to know
 

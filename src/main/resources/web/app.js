@@ -1018,7 +1018,8 @@
         + '</p>';
     }
     $('#drySummary').innerHTML = h;
-    $('#dryCounts').textContent = r.dangerCount + ' at risk · ' + r.warnCount + ' warnings · ' + r.infoCount + ' notes';
+    $('#dryCounts').textContent = r.dangerCount + ' at risk · ' + r.warnCount + (r.warnCount === 1 ? ' warning · ' : ' warnings · ')
+      + r.infoCount + (r.infoCount === 1 ? ' note' : ' notes');
     const el = $('#dryWarnings');
     el.innerHTML = '';
     if (!r.dangerCount && !r.warnCount) el.insertAdjacentHTML('beforeend', '<div class="ok-box">Nothing at risk found. Everything that looks like your work is kept.</div>');
