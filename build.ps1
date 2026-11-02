@@ -61,7 +61,10 @@ if ($Package) {
     $canLink = $LASTEXITCODE -eq 0
     $ErrorActionPreference = 'Stop'
     if ($canLink) {
-        $opts += @('--add-modules', 'java.base,java.desktop,java.net.http,jdk.httpserver',
+        # Before Java 22 the elliptic-curve crypto lives in jdk.crypto.ec; without it HTTPS to Mojang fails (handshake_failure)
+        $jdkMajor = [int](((Get-Content (Join-Path (Split-Path $bin) 'release') | Where-Object { $_ -like 'JAVA_VERSION=*' }) -replace '\D*(\d+).*', '$1'))
+        $modules = 'java.base,java.desktop,java.net.http,jdk.httpserver' + $(if ($jdkMajor -lt 22) { ',jdk.crypto.ec' } else { '' })
+        $opts += @('--add-modules', $modules,
             '--jlink-options', '--strip-debug --no-header-files --no-man-pages --strip-native-commands --compress=zip-6')
     } else {
         Write-Warning 'This JDK cannot link a small Java runtime, so the whole JDK goes into the app (local test build only).'

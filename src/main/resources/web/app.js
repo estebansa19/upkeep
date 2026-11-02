@@ -1205,7 +1205,7 @@
     const parent = (p) => p.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]*$/, '').toLowerCase();
     const besideOriginal = S.session && parent(r.output) === parent(S.session.path);
     h += '<p class="small">New world: <code>' + esc(r.output) + '</code></p>'
-      + '<p class="small muted">' + (besideOriginal ? 'Open it in Minecraft: it is in the same saves folder as your original world.'
+      + '<p class="small muted">' + (besideOriginal ? 'It is right next to your original world, so open it in Minecraft the same way.'
         : 'Move this folder into a Minecraft saves folder to play it.') + ' Removed chunks are generated again as you explore.</p>'
       + '<div class="btn-row"><button id="btnReveal" class="secondary">Open folder</button></div>';
     el.innerHTML = h;
