@@ -44,21 +44,39 @@ Your original world is never modified.
 
 ## Use it
 
-1. Download from the Releases page:
-   - Windows: `Upkeep-<version>-windows-x64.zip`. Extract it anywhere and double-click `Upkeep.exe`.
-   - macOS / Linux: `upkeep-<version>.jar`, then run `java -jar upkeep-<version>.jar`.
-2. Close Minecraft (reading works while it runs, but applying needs the world closed).
-3. Upkeep opens a small window that says it's running, and your browser opens `http://127.0.0.1:8765/`. The page is
-   served by Upkeep on your own computer; nothing goes online. Closing the small window stops Upkeep. Starting it again
-   while it runs just opens the page again.
-4. **Pick a world.** Worlds from the vanilla launcher, Prism Launcher, PolyMC, CurseForge and Modrinth are listed, or paste
-   any world folder path.
-5. **Select.** Check the orange suggestions, click **Keep suggested chunks**, then paint or remove chunks.
-   Right-drag moves the map, and the wheel zooms.
-6. **Review.** Choose which dimensions to regenerate, run the dry run, and fix anything it flags. Each warning has a
+### Install
+
+- **Windows:** on the [Releases page](https://github.com/estebansa19/upkeep/releases/latest), download
+  `Upkeep-<version>-windows-x64.zip`. Right-click it, choose **Extract All…**, and open the extracted `Upkeep` folder.
+  Double-click `Upkeep.exe` (keep it in that folder: it needs the `app` and `runtime` folders next to it). To find it
+  again later, right-click `Upkeep.exe` and choose **Pin to Start**.
+  Until the Windows app is code-signed (see [Code signing policy](#code-signing-policy)), Windows may say "Windows
+  protected your PC" the first time: click **More info**, then **Run anyway**.
+- **macOS / Linux:** download `upkeep-<version>.jar` and run `java -jar upkeep-<version>.jar` (Java 21 or newer).
+
+To check a download, compare its SHA-256 with `SHA256SUMS.txt` on the same release.
+
+### Regenerate a world
+
+1. **Close Minecraft.** Upkeep can read a world while the game runs, but it only writes the copy once the world is closed.
+2. **Start Upkeep.** A small window says it's running, and your browser opens `http://127.0.0.1:8765/`. The page is
+   served by Upkeep on your own computer; nothing goes online. Keep the small window open while you work; closing it
+   stops Upkeep. Starting Upkeep again while it runs just opens the page again.
+3. **Pick a world.** Worlds from the vanilla launcher, Prism Launcher, PolyMC, CurseForge and Modrinth are listed, or paste
+   any world folder path (the folder that holds `level.dat`). Upkeep reads the whole world once to draw the map; big
+   worlds take a while the first time, then it's cached.
+4. **Select what to keep.** Chunks that look like your work are outlined in orange. Untick categories you don't care
+   about, click **Keep suggested chunks**, then paint more chunks with the keep brush (`B`) or remove some with the
+   remove brush (`E`). Right-drag moves the map, the wheel zooms, `I` shows what's in a chunk. Your selection is saved
+   automatically.
+5. **Review.** On the Review tab, switch on the dimensions to regenerate (the others are copied as they are), choose the
+   Minecraft version you'll play the copy in, and click **Run dry run**. Fix anything it flags: each warning has a
    **Show** button and a **Keep it** button.
-7. **Apply.** Pick the output folder (by default, next to the original world) and create the copy. Open the copy in
-   Minecraft and explore.
+6. **Apply.** On the Apply tab, check the new world's folder and name (by default it goes next to the original, as
+   "<world> (regenerated)"), choose **Blended** or **Sharp** borders, and click **Create regenerated copy**. When it
+   says "Done and verified", the copy is ready.
+7. **Play.** Open Minecraft (the same launcher and instance), pick the new world, and explore: every chunk you didn't
+   keep is generated fresh as you get near it. Your original world is still there, unchanged.
 
 Options: `--port N`, `--no-browser`, `--no-window` (console only, stop with Ctrl+C), `--data-dir DIR`, or pass a world
 folder to open it right away.
