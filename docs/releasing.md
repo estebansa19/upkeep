@@ -71,4 +71,5 @@ Steps:
 
    and attach `build/signed/*.zip` instead of the unsigned zip in the checksum and release steps.
 6. Change the README's code signing paragraph to "Free code signing provided by SignPath.io, certificate by SignPath
-   Foundation".
+   Foundation", and drop the "Windows protected your PC" lines from the README and from the release notes in
+   `release.yml`.

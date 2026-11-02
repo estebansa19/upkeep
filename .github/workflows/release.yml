@@ -44,11 +44,14 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           $files = Get-ChildItem build/Upkeep-*-windows-x64.zip, build/upkeep-*.jar, build/SHA256SUMS.txt | ForEach-Object FullName
+          $v = $env:TAG.TrimStart('v')
+          # Drop the "protected your PC" line once releases are signed (docs/releasing.md)
           $notes = @"
-          **Windows:** download ``Upkeep-*-windows-x64.zip``, extract it, and double-click ``Upkeep.exe``. It brings its own Java.
+          **Windows:** download ``Upkeep-$v-windows-x64.zip``, extract it, and double-click ``Upkeep.exe``. It brings its own Java.
+          If Windows says "Windows protected your PC", click **More info**, then **Run anyway** (the app isn't code-signed yet).
 
-          **macOS / Linux:** download ``upkeep-*.jar`` and run ``java -jar upkeep-*.jar`` (Java 21 or newer).
+          **macOS / Linux:** download ``upkeep-$v.jar`` and run ``java -jar upkeep-$v.jar`` (Java 21 or newer).
 
-          ``SHA256SUMS.txt`` lists the checksums of both files.
+          ``SHA256SUMS.txt`` lists the checksums of both files. What changed: [CHANGELOG.md](https://github.com/estebansa19/upkeep/blob/v$v/CHANGELOG.md).
           "@
           gh release create $env:TAG @files --draft --title "Upkeep $env:TAG" --notes $notes --generate-notes
