@@ -29,8 +29,9 @@ Your original world is never modified.
   portals whose partner would be lost, structures cut in two, and water at the edge of kept land.
 - **Apply to a copy.** Kept chunks are copied byte for byte into fresh, compact region files, and their entities and POI
   data come along. Then the copy is re-read and verified.
-- Optional removal of Minecraft's "old chunk" blending marks that kept chunks already carry (see
-  [how it works](docs/how-it-works.md)).
+- **Blended or sharp borders.** By default Minecraft blends new land into kept chunks it considers old. Sharp borders
+  remove those marks; after an upgrade Chunk Keeper first re-saves the kept chunks with the new version's official server
+  so the marks don't come back (see [how it works](docs/how-it-works.md)).
 - Selections are saved per world and dimension in the **MCA Selector** selection format, so you can move them between
   both tools.
 
@@ -85,7 +86,8 @@ The short version, measured on real worlds (details and numbers in [docs/how-it-
 - Kept chunks never change.
 - If the new version marks your kept chunks as "old", it blends new terrain into them. The old biome then continues about
   5 chunks into the regenerated land, and terrain is smoothed for about 100 blocks. A version that changed world generation
-  marks every older chunk when it loads it (26.1.2 → 26.3 did), so expect this ring after such an upgrade.
+  marks every older chunk when it loads it (26.1.2 → 26.3 did), so expect this ring after such an upgrade, unless you
+  choose sharp borders.
 - Half-generated chunks at the edge of explored land keep their old biomes unless you regenerate them too. Chunk Keeper
   removes them unless you keep them.
 - New chunks can place ore, stone blobs and trees up to about 8 blocks into neighbouring kept chunks. Natural blocks are
@@ -131,9 +133,10 @@ src/test/java/            dependency-free tests
 
 ## Limitations
 
-- It can't prevent blending next to kept chunks when the new Minecraft version marks them as old on load. Doing that would
-  mean upgrading the kept chunks with the new version first and then clearing the marks, which needs a Minecraft server
-  (planned).
+- Sharp borders after an upgrade need the official Minecraft server for that version (downloaded from Mojang, or a jar
+  you have), a Java new enough to run it (26.x needs Java 25; Prism Launcher and the Minecraft Launcher install one), and
+  you accepting the Minecraft EULA. It is a plain server, so it isn't for worlds that need mods for their blocks, biomes
+  or dimensions.
 - It doesn't pregenerate the regenerated area. Minecraft generates it when you visit; a pregenerator mod or a server
   can do it ahead of time.
 - Map colors for modded blocks fall back to a generic color.

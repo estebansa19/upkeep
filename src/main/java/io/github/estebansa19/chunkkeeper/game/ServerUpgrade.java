@@ -32,6 +32,8 @@ public final class ServerUpgrade {
 
         List<String> cmd = List.of(server.java().toString(), "-jar", "server.jar", "--nogui", "--forceUpgrade", "--recreateRegionFiles",
             "--universe", world.getParent().toString(), "--world", world.getFileName().toString(), "--port", String.valueOf(freePort()));
+        Path userCache = world.getParent().resolve("usercache.json"); // the server keeps it next to the world, e.g. in saves/
+        boolean hadUserCache = Files.exists(userCache);
         Process proc = new ProcessBuilder(cmd).directory(server.dir().toFile()).redirectErrorStream(true).start();
         Thread killer = new Thread(proc::destroyForcibly);
         Runtime.getRuntime().addShutdownHook(killer);
@@ -66,6 +68,7 @@ public final class ServerUpgrade {
         } finally {
             if (!proc.waitFor(2, TimeUnit.MINUTES)) { proc.destroyForcibly(); proc.waitFor(30, TimeUnit.SECONDS); }
             try { Runtime.getRuntime().removeShutdownHook(killer); } catch (IllegalStateException ignored) { /* shutting down */ }
+            if (!hadUserCache) Files.deleteIfExists(userCache); // only the file this run created
         }
         if (problem != null || !upgraded || !done)
             throw new IOException((problem != null ? problem : "The Minecraft " + server.version() + " server stopped before the upgrade finished")
